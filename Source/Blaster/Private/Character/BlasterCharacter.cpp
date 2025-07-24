@@ -94,7 +94,13 @@ void ABlasterCharacter::Destroyed()
 	{
 		ElimBotComponent->DestroyComponent();
 	}
-	else if (Combat && Combat->EquippedWeapon)
+
+	// When player is elimmed, the ABlasterCharacter will be destoryed too. We should prevent destory weapon in that case.
+	ABlasterGameMode* BlasterGameMode = Cast<ABlasterGameMode>(UGameplayStatics::GetGameMode(this));
+	bool bMatchNotInProgress = BlasterGameMode && BlasterGameMode->GetMatchState() != MatchState::InProgress;
+
+
+	if (Combat && Combat->EquippedWeapon && bMatchNotInProgress)
 	{
 		Combat->EquippedWeapon->Destroy();
 	}
@@ -258,6 +264,12 @@ void ABlasterCharacter::MulticastElim_Implementation()
 	// Disable Collision
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	// Disable Fire
+	if (Combat)
+	{
+		Combat->FireButtonPressed(false);
+	}
+
 	// Spawn Elim bot
 	if (ElimBotEffect)
 	{

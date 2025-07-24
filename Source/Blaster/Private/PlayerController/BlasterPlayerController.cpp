@@ -11,6 +11,7 @@
 #include "Blaster/Public/HUD/Announcement.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "BlasterComponent/CombatComponent.h"
 
 
 void ABlasterPlayerController::BeginPlay()
@@ -368,5 +369,11 @@ void ABlasterPlayerController::HandleCooldown()
 			BlasterHUD->Announcement->AnnouncementText->SetText(FText::FromString(AnnounceText));
 			BlasterHUD->Announcement->InfoText->SetText(FText()); // hiden infotext
 		}
+	}
+	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(GetPawn());
+	if (BlasterCharacter)
+	{
+		BlasterCharacter->bDisableGameplay = true;
+		BlasterCharacter->GetCombat()->FireButtonPressed(false);
 	}
 }

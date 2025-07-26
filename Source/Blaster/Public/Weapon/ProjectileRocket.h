@@ -15,10 +15,22 @@ class BLASTER_API AProjectileRocket : public AProjectile
 	GENERATED_BODY()
 public:
 	AProjectileRocket();
+
+	virtual void Destroyed() override;
 	
 protected:
 	//UFUNCTION()
 	virtual void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector Normalimpulse, const FHitResult& Hit) override;
+
+	virtual void BeginPlay() override;
+
+	UPROPERTY(EditAnywhere)
+	class UNiagaraSystem* TrailSystem;
+
+	void DestoryTimerFinished();
+
+	UPROPERTY()
+	class UNiagaraComponent* TrailSystemComponent;
 
 private:
 	UPROPERTY(EditAnywhere, Category = "ProjectileRocket")
@@ -35,4 +47,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* RocketMesh;
+
+	FTimerHandle DestoryTimer;
+
+	UPROPERTY(EditAnywhere)
+	float DestoryTime = 3.f;
 };

@@ -3,6 +3,12 @@
 
 #include "Weapon/ProjectileRocket.h"
 #include "Kismet/GameplayStatics.h"
+#include "NiagaraFunctionLibrary.h"
+#include "Sound/SoundCue.h"
+#include "Components/BoxComponent.h"
+#include "NiagaraComponent.h"
+#include "NiagaraSystemInstance.h"
+
 
 AProjectileRocket::AProjectileRocket()
 {
@@ -11,10 +17,39 @@ AProjectileRocket::AProjectileRocket()
 	RocketMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision); 
 }
 
+void AProjectileRocket::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (!HasAuthority())
+	{
+		CollisionBox->OnComponentHit.AddDynamic(this, &AProjectileRocket::OnHit);
+	}
+
+	if (TrailSystem)
+	{
+		TrailSystemComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(
+			TrailSystem,
+			GetRootComponent(),
+			FName(),
+			GetActorLocation(),
+			GetActorRotation(),
+			EAttachLocation::KeepWorldPosition,
+			false
+		);
+
+	}
+}
+
+void AProjectileRocket::DestoryTimerFinished()
+{
+	Destroy();
+}
+
 void AProjectileRocket::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector Normalimpulse, const FHitResult& Hit)
 {
 	APawn* FiringPawn = GetInstigator();
-	if (FiringPawn)
+	if (FiringPawn && HasAuthority())
 	{
 		AController* FiringController = FiringPawn->GetController();
 		if (FiringController)
@@ -32,10 +67,37 @@ void AProjectileRocket::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, 
 				this,
 				FiringController // Instigator controller
 			);
-
-
 		}
 	}
+	GetWorldTimerManager().SetTimer(
+		DestoryTimer,
+		this,
+		&AProjectileRocket::DestoryTimerFinished,
+		DestoryTime
+	);
+	if (ImpactParticle)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticle, GetActorTransform());
+	}
+	if (ImpactSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, GetActorLocation());
+	}
+	if (RocketMesh)
+	{
+		RocketMesh->SetVisibility(false);
+	}
+	if (CollisionBox)
+	{
+		CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+	if (TrailSystemComponent && TrailSystemComponent->GetSystemInstance())
+	{
+		TrailSystemComponent->GetSystemInstance()->Deactivate();
+	}
+}
 
-	Super::OnHit(HitComp, OtherActor, OtherComp, Normalimpulse, Hit);
+void AProjectileRocket::Destroyed()
+{
+
 }

@@ -32,6 +32,15 @@ protected:
 	UPROPERTY()
 	class UNiagaraComponent* TrailSystemComponent;
 
+	UPROPERTY(EditAnywhere)
+	USoundCue* ProjectileLoop;
+
+	UPROPERTY()
+	UAudioComponent* ProjectileLoopComponent;
+
+	UPROPERTY(EditAnywhere)
+	USoundAttenuation* LoopingSoundAttenuation;
+
 private:
 	UPROPERTY(EditAnywhere, Category = "ProjectileRocket")
 	float MinimumDamage = 10.f;

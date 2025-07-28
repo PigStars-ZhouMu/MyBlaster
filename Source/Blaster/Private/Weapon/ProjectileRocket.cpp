@@ -8,6 +8,8 @@
 #include "Components/BoxComponent.h"
 #include "NiagaraComponent.h"
 #include "NiagaraSystemInstance.h"
+#include "Sound/SoundCue.h"
+#include "Components/AudioComponent.h"
 
 
 AProjectileRocket::AProjectileRocket()
@@ -39,6 +41,25 @@ void AProjectileRocket::BeginPlay()
 		);
 
 	}
+	if (ProjectileLoop && LoopingSoundAttenuation)
+	{
+		ProjectileLoopComponent = UGameplayStatics::SpawnSoundAttached(
+			ProjectileLoop,
+			GetRootComponent(),
+			FName(),
+			GetActorLocation(),
+			EAttachLocation::KeepWorldPosition,
+			false,
+			1.f,
+			1.f,
+			0.f,
+			LoopingSoundAttenuation,
+			(USoundConcurrency*)nullptr,
+			false
+		);
+
+	}
+
 }
 
 void AProjectileRocket::DestoryTimerFinished()
@@ -95,6 +116,11 @@ void AProjectileRocket::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, 
 	{
 		TrailSystemComponent->GetSystemInstance()->Deactivate();
 	}
+	if (ProjectileLoopComponent && ProjectileLoopComponent->IsPlaying())
+	{
+		ProjectileLoopComponent->Stop();
+	}
+
 }
 
 void AProjectileRocket::Destroyed()

@@ -41,6 +41,8 @@ protected:
 	UPROPERTY(EditAnywhere)
 	USoundAttenuation* LoopingSoundAttenuation;
 
+	UPROPERTY(VisibleAnywhere)
+	class URocketMovementComponent* RocketMovementComponent;
 private:
 	UPROPERTY(EditAnywhere, Category = "ProjectileRocket")
 	float MinimumDamage = 10.f;

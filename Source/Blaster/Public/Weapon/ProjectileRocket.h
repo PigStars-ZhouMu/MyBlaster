@@ -25,14 +25,6 @@ protected:
 	virtual void BeginPlay() override;
 
 	UPROPERTY(EditAnywhere)
-	class UNiagaraSystem* TrailSystem;
-
-	void DestoryTimerFinished();
-
-	UPROPERTY()
-	class UNiagaraComponent* TrailSystemComponent;
-
-	UPROPERTY(EditAnywhere)
 	USoundCue* ProjectileLoop;
 
 	UPROPERTY()
@@ -55,12 +47,4 @@ private:
 	
 	UPROPERTY(EditAnywhere, Category = "ProjectileRocket")
 	float DamageFalloff = 1.f;
-
-	UPROPERTY(VisibleAnywhere)
-	UStaticMeshComponent* RocketMesh;
-
-	FTimerHandle DestoryTimer;
-
-	UPROPERTY(EditAnywhere)
-	float DestoryTime = 3.f;
 };

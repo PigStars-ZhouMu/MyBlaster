@@ -10,6 +10,9 @@
 #include "Sound/SoundCue.h"
 #include "Character/BlasterCharacter.h"
 #include "Blaster/Blaster.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"
+#include "NiagaraSystemInstance.h"
 
 
 AProjectile::AProjectile()
@@ -58,6 +61,37 @@ void AProjectile::BeginPlay()
 void AProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector Normalimpulse, const FHitResult& Hit)
 {
 
+	Destroy();
+}
+
+void AProjectile::SpawnTrailSystem()
+{
+	if (TrailSystem)
+	{
+		TrailSystemComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(
+			TrailSystem,
+			GetRootComponent(),
+			FName(),
+			GetActorLocation(),
+			GetActorRotation(),
+			EAttachLocation::KeepWorldPosition,
+			false
+		);
+	}
+}
+
+void AProjectile::StartDestoryTimer()
+{
+	GetWorldTimerManager().SetTimer(
+		DestoryTimer,
+		this,
+		&AProjectile::DestoryTimerFinished,
+		DestoryTime
+	);
+}
+
+void AProjectile::DestoryTimerFinished()
+{
 	Destroy();
 }
 

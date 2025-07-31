@@ -40,7 +40,6 @@ void AShotGun::Fire(const FVector& HitTarget)
 				{
 					HitMap.Emplace(BlasterCharacter, 1);
 				}
-
 			}
 			if (ImpactParticles)
 			{

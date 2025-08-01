@@ -33,6 +33,10 @@ public:
 	void FinishReloading();
 	void FireButtonPressed(bool bPressed);
 
+	UFUNCTION(BlueprintCallable)
+	void ShotGunShellReload();
+
+	void JumpToShutGunEnd();
 protected:
 	virtual void BeginPlay() override;
 
@@ -147,6 +151,7 @@ private:
 	void OnRep_CombatState();
 
 	void UpdateAmmoValues();
+	void UpdateShotGunAmmoValues();
 
 public:	
 

@@ -11,6 +11,7 @@
 #include "Weapon/Casing.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "Blaster/Public/PlayerController/BlasterPlayerController.h"
+#include "BlasterComponent/CombatComponent.h"
 
 AWeapon::AWeapon()
 {
@@ -158,6 +159,12 @@ void AWeapon::SpendRound()
 
 void AWeapon::OnRep_Ammo()
 {
+	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(GetOwner()) : BlasterOwnerCharacter;
+	if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetCombat() && IsFull())
+	{
+		BlasterOwnerCharacter->GetCombat()->JumpToShutGunEnd();
+	}
+
 	SetHUDAmmo();
 }
 

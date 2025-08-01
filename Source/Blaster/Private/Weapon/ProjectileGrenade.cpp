@@ -46,5 +46,5 @@ void AProjectileGrenade::Destroyed()
 	ExplodeDamage();
 
 
-	Super::Destoryed();
+	Super::Destroyed();
 }

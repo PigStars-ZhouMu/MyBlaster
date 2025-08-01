@@ -20,6 +20,7 @@ protected:
 	virtual void BeginPlay() override;
 	void StartDestoryTimer();
 	void DestoryTimerFinished();
+	void ExplodeDamage();
 
 	UFUNCTION()
 	virtual void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector Normalimpulse, const FHitResult& Hit);
@@ -49,6 +50,18 @@ protected:
 
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* ProjectileMesh;
+
+	UPROPERTY(EditAnywhere, Category = "Projectile")
+	float MinimumDamage = 10.f;
+
+	UPROPERTY(EditAnywhere, Category = "Projectile")
+	float InnerRadius = 200.f;
+
+	UPROPERTY(EditAnywhere, Category = "Projectile")
+	float OuterRadius = 500.f;
+
+	UPROPERTY(EditAnywhere, Category = "Projectile")
+	float DamageFalloff = 1.f;
 
 private:
 

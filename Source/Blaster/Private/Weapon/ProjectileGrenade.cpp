@@ -3,7 +3,8 @@
 
 #include "Weapon/ProjectileGrenade.h"
 #include "GameFramework/ProjectileMovementComponent.h"
-
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundCue.h"
 
 AProjectileGrenade::AProjectileGrenade()
 {
@@ -23,6 +24,27 @@ void AProjectileGrenade::BeginPlay()
 
 	SpawnTrailSystem();
 	StartDestoryTimer();
+
+	ProjectileMovementComponent->OnProjectileBounce.AddDynamic(this, &AProjectileGrenade::OnBounce);
 }
 
+void AProjectileGrenade::OnBounce(const FHitResult& ImpactResult, const FVector& ImpactVelocity)
+{
+	if (BounceSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(
+			this,
+			BounceSound,
+			GetActorLocation()
+		);
 
+	}
+}
+
+void AProjectileGrenade::Destroyed()
+{
+	ExplodeDamage();
+
+
+	Super::Destoryed();
+}

@@ -57,27 +57,7 @@ void AProjectileRocket::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, 
 	{
 		return;
 	}
-	APawn* FiringPawn = GetInstigator();
-	if (FiringPawn && HasAuthority())
-	{
-		AController* FiringController = FiringPawn->GetController();
-		if (FiringController)
-		{
-			UGameplayStatics::ApplyRadialDamageWithFalloff(
-				this, // world context object
-				Damage, // Base damage
-				MinimumDamage,
-				GetActorLocation(), // origin
-				InnerRadius,
-				OuterRadius,
-				DamageFalloff,
-				UDamageType::StaticClass(), // DamageTypeClass
-				TArray<AActor*>(), // Ingore Actors
-				this,
-				FiringController // Instigator controller
-			);
-		}
-	}
+	ExplodeDamage();
 	StartDestoryTimer();
 
 	if (ImpactParticle)

@@ -15,10 +15,16 @@ class BLASTER_API AProjectileGrenade : public AProjectile
 	GENERATED_BODY()
 public:
 	AProjectileGrenade();
+	virtual void Destroyed() override;
+
 protected:
 	void BeginPlay();
 
+	UFUNCTION()
 	void OnBounce(const FHitResult& ImpactResult, const FVector& ImpactVelocity);
-	
+
+private:
+	UPROPERTY(EditAnywhere)
+	USoundCue* BounceSound;
 	
 };

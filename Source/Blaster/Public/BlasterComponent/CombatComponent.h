@@ -40,6 +40,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void ThrowGrenadeFinished();
+
+	UFUNCTION(BlueprintCallable)
+	void LaunchGrenade();
 protected:
 	virtual void BeginPlay() override;
 
@@ -83,6 +86,7 @@ protected:
 	void PlayEquipWeaponSound();
 	void ReloadEmptyWeapon();
 
+	void ShowAttachGrenade(bool bShowGrenade);
 private:
 	class ABlasterCharacter* Character;
 	class ABlasterPlayerController* Controller;

@@ -345,6 +345,7 @@ void UCombatComponent::OnRep_CombatState()
 		{
 			Character->PlayThrowGrenadeMontage();
 			AttachActorToLeftHand(EquippedWeapon);
+			ShowAttachGrenade(true);
 		}
 		break;
 
@@ -372,6 +373,14 @@ int32 UCombatComponent::AmountToReload()
 	return 0;
 }
 
+void UCombatComponent::ShowAttachGrenade(bool bShowGrenade)
+{
+	if (Character && Character->GetAttachGrenadeMesh())
+	{
+		Character->GetAttachGrenadeMesh()->SetVisibility(bShowGrenade);
+	}
+}
+
 void UCombatComponent::ThrowGrenade()
 {
 	CombatState = ECombatState::ECS_ThrowingGrenade;
@@ -379,6 +388,7 @@ void UCombatComponent::ThrowGrenade()
 	{
 		Character->PlayThrowGrenadeMontage();
 		AttachActorToLeftHand(EquippedWeapon);
+		ShowAttachGrenade(true);
 	}
 	if (Character && !Character->HasAuthority()) // make sure the serverRPC only be called on client 
 	{
@@ -392,6 +402,12 @@ void UCombatComponent::ThrowGrenadeFinished()
 	AttachActorToRightHand(EquippedWeapon);
 }
 
+void UCombatComponent::LaunchGrenade()
+{
+	ShowAttachGrenade(false);
+
+}
+
 void UCombatComponent::ServerThrowGrenade_Implementation()
 {
 	CombatState = ECombatState::ECS_ThrowingGrenade;
@@ -399,8 +415,8 @@ void UCombatComponent::ServerThrowGrenade_Implementation()
 	{
 		Character->PlayThrowGrenadeMontage();
 		AttachActorToLeftHand(EquippedWeapon);
+		ShowAttachGrenade(true);
 	}
-
 }
 
 void UCombatComponent::OnRep_EquippedWeapon()

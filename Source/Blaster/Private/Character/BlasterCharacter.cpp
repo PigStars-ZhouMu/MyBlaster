@@ -89,7 +89,6 @@ void ABlasterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ABlasterCharacter, bDisableGameplay);
 }
 
-
 void ABlasterCharacter::Destroyed()
 {
 	Super::Destroyed();
@@ -134,7 +133,10 @@ void ABlasterCharacter::BeginPlay()
 	if (HasAuthority())
 	{
 		OnTakeAnyDamage.AddDynamic(this, &ABlasterCharacter::ReceiveDamage);
-
+	}
+	if (AttachGrenade)
+	{
+		AttachGrenade->SetVisibility(false);
 	}
 }
 

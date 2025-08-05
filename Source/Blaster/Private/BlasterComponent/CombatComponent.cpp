@@ -16,6 +16,7 @@
 #include "TimerManager.h"
 #include "Sound/SoundCue.h"
 #include "Blaster/Public/Character/BlasterAnimInstance.h"
+#include "Blaster/Public/Weapon/Projectile.h"
 
 
 // Sets default values for this component's properties
@@ -383,6 +384,7 @@ void UCombatComponent::ShowAttachGrenade(bool bShowGrenade)
 
 void UCombatComponent::ThrowGrenade()
 {
+	if (CombatState != ECombatState::ECS_Unoccupied || EquippedWeapon == nullptr) return;
 	CombatState = ECombatState::ECS_ThrowingGrenade;
 	if (Character)
 	{
@@ -405,7 +407,24 @@ void UCombatComponent::ThrowGrenadeFinished()
 void UCombatComponent::LaunchGrenade()
 {
 	ShowAttachGrenade(false);
-
+	if (Character && Character->HasAuthority() && GrenadeClass && Character->GetAttachGrenadeMesh())
+	{
+		const FVector StartingLocation = Character->GetAttachGrenadeMesh()->GetComponentLocation();
+		FVector ToTarget = HitTarget - StartingLocation;
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = Character;
+		SpawnParams.Instigator = Character;
+		UWorld* World = GetWorld();
+		if(World)
+		{
+			World->SpawnActor<AProjectile>(
+				GrenadeClass,
+				StartingLocation,
+				ToTarget.Rotation(),
+				SpawnParams
+			);
+		}
+	}
 }
 
 void UCombatComponent::ServerThrowGrenade_Implementation()

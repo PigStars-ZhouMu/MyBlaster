@@ -698,11 +698,11 @@ void TraceUnderCrosshairs(FHitResult& TraceHitResult) {
         CrosshairLocation,
         CrosshairWorldPosition,
         CrosshairWorldDirection;
-    
+  
     );
     if (bScreenToWorld) {
         FVector Start = CrosshairWorldPosition;
-    
+  
         FVector End = Start + CrosshairWorldDirection * TRACE_LENGTH;
         GetWorld()->LineTraceSingleByChannel(
         	TraceHitResult,
@@ -713,7 +713,7 @@ void TraceUnderCrosshairs(FHitResult& TraceHitResult) {
         if (!TraceHitResult.bBlockingHit) {
             TraceHitResult.ImpactPoint = End;
         } else {
-        
+  
             DrawDebugSphere(/* */);
         }
     }
@@ -1125,11 +1125,11 @@ void UCombatComponent::Fire()
     if (CanFire())  // 核心判断函数
     {
         bCanFire = false;
-    
+  
         FHitResult HitResult;
         TraceUnderCrosshairs(HitResult);  // 准星射线检测
         ServerFire(HitResult.ImpactPoint);
-    
+  
         if (EquippedWeapon)
         {
             CrosshairShootingFactor = 1.f;  // 更新准星扩散
@@ -1311,7 +1311,7 @@ void UCombatComponent::TraceUnderCrosshairs(FHitResult& TraceHitResult)
         {
             // 计算摄像机到角色的距离
             float DistanceToCharacter = (Character->GetActorLocation() - Start).Size();
-    
+  
             // 将射线起始点前移到角色前方100单位处
             // 这样可以避免射线从摄像机开始时意外击中角色自身
             Start += CrosshairWorldDirection * (DistanceToCharacter + 100.f);
@@ -1353,6 +1353,307 @@ void UCombatComponent::TraceUnderCrosshairs(FHitResult& TraceHitResult)
             // 击中普通物体或没有击中，准星保持白色
             HUDPackage.CrosshairsColor = FLinearColor::White;
         }
+    }
+}
+```
+
+### Beam Particles
+
+```c++
+/** Spawns an emitter at the specified location */
+UFUNCTION(BlueprintCallable, Category = "Gameplay|Effects", 
+          meta = (WorldContext = "WorldContextObject", 
+                  AutoCreateRefTerm = "Rotation", 
+                  AdvancedDisplay = "bAutoDestroy, PoolingMethod"))
+static UParticleSystemComponent* SpawnEmitterAtLocation(
+    const UObject* WorldContextObject,        // 世界上下文
+    UParticleSystem* EmitterTemplate,         // 粒子系统模板
+    FVector Location,                         // 世界空间位置
+    FRotator Rotation = FRotator::ZeroRotator,// 旋转角度
+    FVector Scale = FVector(1.f),             // 缩放比例
+    bool bAutoDestroy = true,                 // 是否自动销毁
+    EPSCPoolMethod PoolingMethod = EPSCPoolMethod::None // 池化方法
+);
+```
+
+### ShotGun Reload
+
+#### Reload流程
+
+##### `void UCombatComponent::Reload()`：重装入口
+
+```c++
+void UCombatComponent::Reload()
+{
+    if (CarriedAmmo > 0 && CombatState != ECombatState::ECS_Reloading)
+    {
+        ServerReload();
+    }
+}
+```
+
+Reload是从 `ABlasterCharacter::ReloadButtomPressed()`跳转来的。
+
+##### `voidUCombatComponent::ServerReload_Implementation()`：服务器端重装
+
+```c++
+void UCombatComponent::ServerReload_Implementation()
+{
+    if (Character == nullptr || EquippedWeapon == nullptr) return;
+
+    CombatState = ECombatState::ECS_Reloading;
+    HandleReload();
+}
+```
+
+通过调用一个Server RPC让Server来处理Reload相关的事务，经过必要的检查，将 `CombatState`设置为 `ECombatState::ECS_Reloading`。
+
+##### `voidUCombatComponent::HandleReload()`：重装处理
+
+```c++
+void UCombatComponent::HandleReload()
+{
+    Character->PlayReloadMontage();
+}
+```
+
+调用 `Character->PlayerReloadMontage()`
+
+```c++
+void ABlasterCharacter::PlayReloadMontage()
+{
+	if (Combat == nullptr || Combat->EquippedWeapon == nullptr) return;
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && ReloadMontage)
+	{
+		AnimInstance->Montage_Play(ReloadMontage);
+		FName SectionName;
+		switch (Combat->EquippedWeapon->GetWeaponType())
+		{
+		...
+		}
+		AnimInstance->Montage_JumpToSection(SectionName);
+	}
+}
+```
+
+##### 蓝图逻辑
+
+![1754106521776](image/UnrealEngine5C++MultiplayerShooter/1754106521776.png)
+
+在Montage完成对应Section的播放后，会触发ReloadFinished通知，进而使用上面的逻辑调用 `voidUCombatComponent::FinishReloading()`
+
+##### `voidUCombatComponent::FinishReloading()`：完成重装
+
+```c++
+void UCombatComponent::FinishReloading()
+{
+    if (Character == nullptr) return;
+    if (Character->HasAuthority())
+    {
+        CombatState = ECombatState::ECS_Unoccupied;
+        UpdateAmmoValues();
+    }
+    if (bFirebuttonPressed)
+    {
+        Fire();
+    }
+}
+```
+
+将 `CombatState`修改为 `ECombatState::ECS_Unoccupied`。同时调用 `voidUCombatComponent::UpdateAmmoValues()`，由此进入更新Ammo的流程。
+
+#### 弹药更新
+
+##### `voidUCombatComponent::UpdateAmmoValues()`：普通弹药更新
+
+```c++
+void UCombatComponent::UpdateAmmoValues()
+{
+    if (Character == nullptr || EquippedWeapon == nullptr) return;
+
+    int32 ReloadAmount = AmountToReload();
+    if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
+    {
+        CarriedAmmoMap[EquippedWeapon->GetWeaponType()] -= ReloadAmount;
+        CarriedAmmo = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+    }
+    Controller = Controller == nullptr ? Cast<ABlasterPlayerController>(Character->Controller) : Controller;
+    if (Controller)
+    {
+        Controller->SetHUDCarriedAmmo(CarriedAmmo);
+    }
+    EquippedWeapon->AddAmmo(-ReloadAmount);
+}
+```
+
+计算重装的数量，从备用弹药中扣除重装的数量，更新HUD显示的备用弹药，给武器添加弹药。
+
+```c++
+int32 UCombatComponent::AmountToReload()
+{
+	if (EquippedWeapon == nullptr) return 0;
+	int32 RoomInMag = EquippedWeapon->GetMagCapacity() - EquippedWeapon->GetAmmo();
+
+	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
+	{
+		int32 AmountCarried = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+		int Least = FMath::Min(RoomInMag, AmountCarried);
+		return FMath::Clamp(RoomInMag, 0, Least);
+	}
+	return 0;
+}
+```
+
+##### ShotGun弹药更新
+
+首先，在ShotGun的ReloadMontageSection中，存在名为Shell的通知，如下：
+
+![1754107517922](image/UnrealEngine5C++MultiplayerShooter/1754107517922.png)
+
+每当播放到Shell通知时，动画蓝图会执行如下逻辑：
+
+![1754107562754](image/UnrealEngine5C++MultiplayerShooter/1754107562754.png)
+
+随后会执行 `voidUCombatComponent::ShotGunShellReload()`，这个函数在检查 `Character->HasAuthority()`后，调用 `void UCombatComponent::UpdateAmmoValues()`。上文中，对于普通武器，仍然是确定其在服务器上之后才调用对应的Ammo更新函数，这表明Ammo是需要在服务器上更新的，同时，又因为其是Replicated，对于客户端，会在对应的OnRep函数里调用HUD函数绘制Ammo的变化。
+
+```c++
+void UCombatComponent::UpdateShotGunAmmoValues()
+{
+    if (Character == nullptr || EquippedWeapon == nullptr || EquippedWeapon->GetWeaponType() != EWeaponType::EWT_ShotGun) return;
+    int32 RoomInMag = EquippedWeapon->GetMagCapacity() - EquippedWeapon->GetAmmo();
+
+    if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
+    {
+        CarriedAmmoMap[EquippedWeapon->GetWeaponType()] -= (RoomInMag == 0) ? 0 : 1;
+        CarriedAmmo = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+    }
+
+    Controller = Controller == nullptr ? Cast<ABlasterPlayerController>(Character->Controller) : Controller;
+    if (Controller)
+    {
+        Controller->SetHUDCarriedAmmo(CarriedAmmo);
+    }
+    EquippedWeapon->AddAmmo((RoomInMag == 0) ? 0 : -1);
+
+    bCanFire = true;
+
+    if (EquippedWeapon->IsFull() || CarriedAmmo == 0)
+    {
+        JumpToShutGunEnd();
+    }
+}
+```
+
+上述代码和 `void UCombatComponent::UpdateAmmoValues()`基本一致，但是将填装的子弹确定为1（或者0），随后判断武器是否填满，或者身上已经没有子弹，如果是的话，直接跳转到End，结束换弹。
+
+同时注意，这里设置了 `bCanFire = true;`，这会导致可以使用开火打断ShotGun的换弹。当然简单的将 `bCanFire = true;`并不能使得武器立刻可以开火，于是做了如下工作：
+
+```c++
+bool UCombatComponent::CanFire()
+{
+    if (EquippedWeapon == nullptr) return false;
+    // 特别为霰弹枪添加的条件：重装状态下也可以开火
+    if (!EquippedWeapon->IsEmpty() && bCanFire && CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun) return true;
+    // 普通武器的开火条件
+    return !EquippedWeapon->IsEmpty() && bCanFire && (CombatState == ECombatState::ECS_Unoccupied);
+}
+
+void UCombatComponent::UpdateShotGunAmmoValues()
+{
+    // ...弹药更新逻辑...
+  
+    bCanFire = true; // 每次装填一发子弹后立即恢复开火能力
+  
+    // ...其他逻辑...
+}
+
+void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
+{
+    if (EquippedWeapon == nullptr) return;
+  
+    // 霰弹枪重装期间的特殊处理
+    if (Character && CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun)
+    {
+        Character->PlayFireMontage(bAiming);
+        EquippedWeapon->Fire(TraceHitTarget);
+        CombatState = ECombatState::ECS_Unoccupied; // 打断重装，设置为未占用状态
+        return;
+    }
+  
+    // 普通情况下的开火处理
+    if (Character && (CombatState == ECombatState::ECS_Unoccupied))
+    {
+        Character->PlayFireMontage(bAiming);
+        EquippedWeapon->Fire(TraceHitTarget);
+    }
+}
+
+void UCombatComponent::OnRep_CombatState()
+{
+    switch (CombatState)
+    {
+    case ECombatState::ECS_Reloading:
+        HandleReload();
+        break;
+    case ECombatState::ECS_Unoccupied:
+        if (bFirebuttonPressed) // 如果玩家一直按着开火键
+        {
+            Fire(); // 立即开火
+        }
+        break;
+    }
+}
+
+void UCombatComponent::OnRep_CombatState()
+{
+    switch (CombatState)
+    {
+    case ECombatState::ECS_Reloading:
+        HandleReload();
+        break;
+    case ECombatState::ECS_Unoccupied:
+        if (bFirebuttonPressed) // 如果玩家一直按着开火键
+        {
+            Fire(); // 立即开火
+        }
+        break;
+    }
+}
+
+void UCombatComponent::FinishReloading()
+{
+    if (Character == nullptr) return;
+    if (Character->HasAuthority())
+    {
+        CombatState = ECombatState::ECS_Unoccupied;
+        UpdateAmmoValues();
+    }
+    if (bFirebuttonPressed) // 重装完成后，如果还按着开火键
+    {
+        Fire(); // 继续开火
+    }
+}
+```
+
+##### OnRep_CarriedAmmo()
+
+```c++
+void UCombatComponent::OnRep_CarriedAmmo()
+{
+    Controller = Controller == nullptr ? Cast<ABlasterPlayerController>(Character->Controller) : Controller;
+    if (Controller)
+    {
+        Controller->SetHUDCarriedAmmo(CarriedAmmo);
+    }
+    bool bJumpToShutGunEnd = CombatState == ECombatState::ECS_Reloading &&
+        EquippedWeapon != nullptr &&
+        EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun &&
+        CarriedAmmo == 0;
+    if (bJumpToShutGunEnd)
+    {
+        JumpToShutGunEnd();
     }
 }
 ```

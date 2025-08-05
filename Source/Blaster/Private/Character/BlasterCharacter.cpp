@@ -75,6 +75,10 @@ ABlasterCharacter::ABlasterCharacter()
 	MinNetUpdateFrequency = 33.f;
 
 	DissolveTimeLine = CreateDefaultSubobject<UTimelineComponent>(TEXT("DissolveTimeLineComponent"));
+
+	AttachGrenade = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Attach Grenade"));
+	AttachGrenade->SetupAttachment(GetMesh(), FName("RightHandSocket"));
+	AttachGrenade->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void ABlasterCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -394,7 +398,7 @@ void ABlasterCharacter::Move(const FInputActionValue& Value)
 }
 
 void ABlasterCharacter::Look(const FInputActionValue& Value)
-{
+{ 
 	FVector2D LookVector = Value.Get<FVector2D>();
 	if (Controller)
 	{

@@ -230,6 +230,13 @@ private:
 
 	UPROPERTY()
 	class ABlasterPlayerState* BlasterPlayerState;
+
+	/*
+	* grenade
+	*/
+
+	UPROPERTY(VisibleAnywhere)
+	UStaticMeshComponent* AttachGrenade;
 public:	
 
 	void SetOverlappingWeapon(AWeapon* Weapon);

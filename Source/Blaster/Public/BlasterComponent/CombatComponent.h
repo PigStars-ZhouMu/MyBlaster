@@ -73,6 +73,16 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerThrowGrenade();
 
+	/*
+	* the little function form Equipweapon()
+	*/
+	void DropEquippedWeapon();
+	void AttachActorToRightHand(AActor* ActorToAttach);
+	void AttachActorToLeftHand(AActor* ActorToAttach);
+	void UpdateCarriedAmmo();
+	void PlayEquipWeaponSound();
+	void ReloadEmptyWeapon();
+
 private:
 	class ABlasterCharacter* Character;
 	class ABlasterPlayerController* Controller;

@@ -19,7 +19,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	UFUNCTION()
-	virtual void OnSphereOverLap(
+	virtual void OnSphereOverlap(
 		UPrimitiveComponent* OverlappedComponent,
 		AActor* OtherActor,
 		UPrimitiveComponent* OtherComponent,
@@ -27,6 +27,9 @@ protected:
 		bool bFromSweep,
 		const FHitResult& SweepReult
 	);
+
+	UPROPERTY(EditAnywhere)
+	float BaseTurnRate = 45.f;
 
 private:
 	UPROPERTY(EditAnywhere)

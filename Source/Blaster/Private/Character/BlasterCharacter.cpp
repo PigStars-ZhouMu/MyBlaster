@@ -377,7 +377,6 @@ void ABlasterCharacter::ReceiveDamage(AActor* DamageActor, float Damage, const U
 			BlasterPlayerController = BlasterPlayerController == nullptr ? Cast<ABlasterPlayerController>(Controller) : BlasterPlayerController;
 			ABlasterPlayerController* AttackerController = Cast<ABlasterPlayerController>(InstigatorController);
 			BlasterGameMode->PlayEliminated(this, BlasterPlayerController, AttackerController);
-
 		}
 	}
 	

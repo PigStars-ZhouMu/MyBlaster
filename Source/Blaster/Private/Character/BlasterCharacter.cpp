@@ -188,7 +188,7 @@ void ABlasterCharacter::PostInitializeComponents()
 	}
 	if (Buff)
 	{
-		Buff->Character = this;
+		Buff->Character = this; // because buff->character is private, so we set the ABlasterCharacter is UBuffCompenent's friend class. make sure we can access the private 
 	}
 }
 

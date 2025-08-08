@@ -13,8 +13,8 @@ class BLASTER_API UBuffComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:	
-	// Sets default values for this component's properties
 	UBuffComponent();
+	friend class ABlasterCharacter;
 
 protected:
 	// Called when the game starts

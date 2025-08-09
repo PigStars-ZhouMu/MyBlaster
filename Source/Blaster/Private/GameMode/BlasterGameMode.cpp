@@ -108,5 +108,14 @@ void ABlasterGameMode::RequestRespawn(ACharacter* ElimmedCharacter, AController*
 		int32 Selection = FMath::RandRange(0, PlayerStarts.Num() - 1);
 
 		RestartPlayerAtPlayerStart(ElimmedController, PlayerStarts[Selection]);
+		
+		ABlasterCharacter* NewCharacter = Cast<ABlasterCharacter>(ElimmedController->GetCharacter());
+		if (NewCharacter)
+		{
+			NewCharacter->SetHealth(NewCharacter->GetMaxHealth());
+			NewCharacter->SetShield(NewCharacter->GetMaxShield());
+			NewCharacter->UpdateHUDHealth();
+			NewCharacter->UpdateHUDShield();
+		}
 	}
 }

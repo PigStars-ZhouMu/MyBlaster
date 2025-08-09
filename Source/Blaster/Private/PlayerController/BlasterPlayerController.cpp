@@ -181,10 +181,11 @@ void ABlasterPlayerController::SetHUDShield(float Shield, float MaxShield)
 		BlasterHUD->CharacterOverlay &&
 		BlasterHUD->CharacterOverlay->ShieldBar &&
 		BlasterHUD->CharacterOverlay->ShieldText;
+
 	if (bHUDValid)
 	{
 		const float ShieldPercent = Shield / MaxShield;
-		UE_LOG(LogTemp, Warning, TEXT("bHUDValid is true, ShieldPercent = %f"), ShieldPercent);
+		UE_LOG(LogTemp, Warning, TEXT("bHUDValid is true, Shield = %f, ShieldPercent = %f"), Shield, ShieldPercent);
 		BlasterHUD->CharacterOverlay->ShieldBar->SetPercent(ShieldPercent);
 		FString ShieldText = FString::Printf(TEXT("%d/%d"), FMath::CeilToInt(Shield), FMath::CeilToInt(MaxShield));
 		BlasterHUD->CharacterOverlay->ShieldText->SetText(FText::FromString(ShieldText));

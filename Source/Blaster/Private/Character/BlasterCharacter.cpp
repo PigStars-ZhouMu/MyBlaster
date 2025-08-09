@@ -132,7 +132,11 @@ void ABlasterCharacter::BeginPlay()
 			}
 		}
 	}
-
+	Health = MaxHealth;
+	Shield = MaxShield;
+	
+	// we don't update the health and shield here, instead we update them in PollInit, just in case the controlelr is nullptr. ???
+	
 	UpdateHUDHealth();
 	UpdateHUDShield();
 
@@ -150,6 +154,8 @@ void ABlasterCharacter::BeginPlay()
 void ABlasterCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	//UE_LOG(LogTemp, Warning, TEXT("Tick::shield = %f"), Shield);
 
 	RotateInPlace(DeltaTime);
 	HideCameraIfCharacterClose();
@@ -184,6 +190,7 @@ void ABlasterCharacter::RotateInPlace(float DeltaTime)
 void ABlasterCharacter::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+
 	if (Combat)
 	{
 		Combat->Character = this;
@@ -408,7 +415,6 @@ void ABlasterCharacter::ReceiveDamage(AActor* DamageActor, float Damage, const U
 			BlasterGameMode->PlayEliminated(this, BlasterPlayerController, AttackerController);
 		}
 	}
-	
 }
 
 void ABlasterCharacter::Move(const FInputActionValue& Value)
@@ -710,9 +716,13 @@ void ABlasterCharacter::OnRep_Shield(float LastShield)
 
 void ABlasterCharacter::UpdateHUDShield()
 {
+	UE_LOG(LogTemp, Warning, TEXT("ABlasterCharacter::UpdateHUDShield() is called, with Shield = %f"), Shield);
+
 	BlasterPlayerController = BlasterPlayerController == nullptr ? Cast<ABlasterPlayerController>(Controller) : BlasterPlayerController;
+
 	if (BlasterPlayerController)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("In ABlasterCharacter::UpdateHUDShield(), ABlasterPlayerController::SetHUDShield() is called, with Shield = %f"), Shield);
 		BlasterPlayerController->SetHUDShield(Shield, MaxShield);
 	}
 }
@@ -727,6 +737,16 @@ void ABlasterCharacter::PollInit()
 		{
 			BlasterPlayerState->AddToScore(0.f);
 			BlasterPlayerState->AddToDefeats(0);
+		}
+	}
+	if (Controller == nullptr)
+	{
+		Controller = GetController<ABlasterPlayerController>();
+		if (Controller)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("in PollInit updateshield is called. shield = "), Shield);
+			UpdateHUDHealth();
+			UpdateHUDShield();
 		}
 	}
 }

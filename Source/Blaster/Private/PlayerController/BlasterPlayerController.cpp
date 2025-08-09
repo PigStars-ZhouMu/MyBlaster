@@ -121,18 +121,17 @@ void ABlasterPlayerController::PollInit()
 		if (BlasterHUD && BlasterHUD->CharacterOverlay)
 		{
 			CharacterOverlay = BlasterHUD->CharacterOverlay;
-			if (bInitializeCharacterOverlay && CharacterOverlay)
+			if (CharacterOverlay)
 			{
-				SetHUDHealth(HUDHealth, HUDMaxHealth);
-				SetHUDShield(HUDShield, HUDMaxShield);
-				SetHUDScore(HUDScore);
-				SetHUDDefeats(HUDDefeats);
-				bInitializeCharacterOverlay = false;
+				if (bInitialHealth) SetHUDHealth(HUDHealth, HUDMaxHealth);
+				if (bInitialShield) SetHUDShield(HUDShield, HUDMaxShield);
+				if (bInitialScore) SetHUDScore(HUDScore);
+				if (bInitialDefeats) SetHUDDefeats(HUDDefeats);
 
 				ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(GetPawn());
 				if (BlasterCharacter && BlasterCharacter->GetCombat())
 				{
-					SetHUDGrenade(BlasterCharacter->GetCombat()->GetGrenade());
+					if (bInitialGrenades) SetHUDGrenade(BlasterCharacter->GetCombat()->GetGrenade());
 				}
 			}
 		}
@@ -168,7 +167,7 @@ void ABlasterPlayerController::SetHUDHealth(float Health, float MaxHealth)
 	}
 	else 
 	{
-		bInitializeCharacterOverlay = true;
+		bInitialHealth = true;
 		HUDHealth = Health;
 		HUDMaxHealth = MaxHealth;
 	}
@@ -185,15 +184,17 @@ void ABlasterPlayerController::SetHUDShield(float Shield, float MaxShield)
 	if (bHUDValid)
 	{
 		const float ShieldPercent = Shield / MaxShield;
+		UE_LOG(LogTemp, Warning, TEXT("bHUDValid is true, ShieldPercent = %f"), ShieldPercent);
 		BlasterHUD->CharacterOverlay->ShieldBar->SetPercent(ShieldPercent);
 		FString ShieldText = FString::Printf(TEXT("%d/%d"), FMath::CeilToInt(Shield), FMath::CeilToInt(MaxShield));
 		BlasterHUD->CharacterOverlay->ShieldText->SetText(FText::FromString(ShieldText));
 	}
 	else
 	{
-		bInitializeCharacterOverlay = true;
+		bInitialShield = true;
 		HUDShield = Shield;
 		HUDMaxShield = MaxShield;
+		UE_LOG(LogTemp, Warning, TEXT("bHUDValid is false, HUDShield = %f, HUDMaxShield = %f"), HUDShield, HUDMaxShield);
 	}
 }
 
@@ -210,7 +211,7 @@ void ABlasterPlayerController::SetHUDScore(float Score)
 	}
 	else
 	{
-		bInitializeCharacterOverlay = true;
+		bInitialScore = true;
 		HUDScore = Score;
 	}
 }
@@ -228,7 +229,7 @@ void ABlasterPlayerController::SetHUDDefeats(int32 Defeats)
 	}
 	else
 	{
-		bInitializeCharacterOverlay = true;
+		bInitialDefeats = true;
 		HUDDefeats = Defeats;
 	}
 }
@@ -313,6 +314,7 @@ void ABlasterPlayerController::SetHUDGrenade(int32 Grenades)
 	}
 	else
 	{
+		bInitialGrenades = true;
 		HUDGrenades = Grenades;
 	}
 }
@@ -347,10 +349,10 @@ void ABlasterPlayerController::ReceivedPlayer()
 
 void ABlasterPlayerController::OnMatchStateSet(FName State)
 {
-	UE_LOG(LogTemp, Warning, TEXT("OnMatchStateSet called - Player: %s, State: %s, HasAuthority: %s, IsLocalController: %s"),
-		*GetName(), *State.ToString(),
-		HasAuthority() ? TEXT("true") : TEXT("false"),
-		IsLocalController() ? TEXT("true") : TEXT("false"));
+	//UE_LOG(LogTemp, Warning, TEXT("OnMatchStateSet called - Player: %s, State: %s, HasAuthority: %s, IsLocalController: %s"),
+	//	*GetName(), *State.ToString(),
+	//	HasAuthority() ? TEXT("true") : TEXT("false"),
+	//	IsLocalController() ? TEXT("true") : TEXT("false"));
 
 	MatchState = State;
 
@@ -366,8 +368,8 @@ void ABlasterPlayerController::OnMatchStateSet(FName State)
 
 void ABlasterPlayerController::OnRep_MatchState()
 {
-	UE_LOG(LogTemp, Warning, TEXT("OnRep_MatchState called - Player: %s, State: %s, HasAuthority: %s, IsLocalController: %s"), *GetName(), *MatchState.ToString(), HasAuthority() ? TEXT("true") : TEXT("false"),
-		IsLocalController() ? TEXT("true") : TEXT("false"));
+	//UE_LOG(LogTemp, Warning, TEXT("OnRep_MatchState called - Player: %s, State: %s, HasAuthority: %s, IsLocalController: %s"), *GetName(), *MatchState.ToString(), HasAuthority() ? TEXT("true") : TEXT("false"),
+	//	IsLocalController() ? TEXT("true") : TEXT("false"));
 
 	if (MatchState == MatchState::InProgress)
 	{
@@ -382,9 +384,9 @@ void ABlasterPlayerController::OnRep_MatchState()
 
 void ABlasterPlayerController::HandleMatchHasStarted()
 {
-	UE_LOG(LogTemp, Warning, TEXT("HandleMatchHasStarted called - HasAuthority: %s, IsLocalController: %s"),
-		HasAuthority() ? TEXT("true") : TEXT("false"),
-		IsLocalController() ? TEXT("true") : TEXT("false"));
+	//UE_LOG(LogTemp, Warning, TEXT("HandleMatchHasStarted called - HasAuthority: %s, IsLocalController: %s"),
+	//	HasAuthority() ? TEXT("true") : TEXT("false"),
+	//	IsLocalController() ? TEXT("true") : TEXT("false"));
 
 	BlasterHUD = BlasterHUD ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
 
@@ -401,9 +403,9 @@ void ABlasterPlayerController::HandleMatchHasStarted()
 
 void ABlasterPlayerController::HandleCooldown()
 {
-	UE_LOG(LogTemp, Warning, TEXT("HandleCooldown called - HasAuthority: %s, IsLocalController: %s"),
-		HasAuthority() ? TEXT("true") : TEXT("false"),
-		IsLocalController() ? TEXT("true") : TEXT("false"));
+	//UE_LOG(LogTemp, Warning, TEXT("HandleCooldown called - HasAuthority: %s, IsLocalController: %s"),
+	//	HasAuthority() ? TEXT("true") : TEXT("false"),
+	//	IsLocalController() ? TEXT("true") : TEXT("false"));
 
 	BlasterHUD = BlasterHUD ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
 

@@ -192,9 +192,19 @@ private:
 	float MaxShield = 100.f;
 	UPROPERTY(ReplicatedUsing = OnRep_Shield, EditAnywhere, Category = "Player Stats")
 	float Shield = 100.f;
+	UPROPERTY(EditAnywhere, Category = "Player Stats")
+	USoundCue* ShieldBreakSound;
+	bool bShieldBreak = false;
 	UFUNCTION()
 	void OnRep_Shield(float LastShield);
-
+	// Shield Auto Replenish
+	UPROPERTY(EditAnywhere, Category = "Player Stats")
+	float ShieldAutoReplenishDelay = 5.f;
+	UPROPERTY(EditAnywhere, Category = "Player Stats")
+	float ShieldAutoReplenishRate = 2.f;
+	float TimeSinceLastDamage = 0.f;
+	bool bCanShieldAutoRelenish = false;
+	void ShieldAutoReplenish(float DeltaTime);
 
 
 	UPROPERTY()
@@ -244,7 +254,6 @@ private:
 	UPROPERTY(VisibleAnywhere)
 	UStaticMeshComponent* AttachGrenade;
 public:	
-
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped();
 	bool IsAiming();

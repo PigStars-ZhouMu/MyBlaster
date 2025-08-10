@@ -159,8 +159,8 @@ void ABlasterCharacter::Tick(float DeltaTime)
 
 	RotateInPlace(DeltaTime);
 	HideCameraIfCharacterClose();
-
 	PollInit();
+	ShieldAutoReplenish(DeltaTime);
 }
 
 void ABlasterCharacter::RotateInPlace(float DeltaTime)
@@ -391,15 +391,33 @@ void ABlasterCharacter::ReceiveDamage(AActor* DamageActor, float Damage, const U
 		if (Shield >= Damage)
 		{
 			Shield = FMath::Clamp(Shield - Damage, 0, MaxShield);
-			DamageToHealth = 0;
 		}
 		else
 		{
 			Shield = 0.f;
-			DamageToHealth = FMath::Clamp(DamageToHealth - Shield, 0.f, Damage);
+			bShieldBreak = true;
+			if (ShieldBreakSound)
+			{
+				UGameplayStatics::PlaySoundAtLocation(
+					this,
+					ShieldBreakSound,
+					GetActorLocation()
+				);
+			}
 		}
+		DamageToHealth = 0;
 	}
 	Health = FMath::Clamp(Health - DamageToHealth, 0.f, MaxHealth);
+
+	if (bShieldBreak)
+	{
+		TimeSinceLastDamage = -1 * ShieldAutoReplenishDelay;
+	}
+	else
+	{
+		TimeSinceLastDamage = 0.f;
+	}
+	bCanShieldAutoRelenish = false;
 
 	UpdateHUDHealth();
 	UpdateHUDShield();
@@ -714,6 +732,23 @@ void ABlasterCharacter::OnRep_Shield(float LastShield)
 	}
 }
 
+void ABlasterCharacter::ShieldAutoReplenish(float DeltaTime)
+{
+	if (Shield < MaxShield)
+	{
+		TimeSinceLastDamage += DeltaTime;
+		if (TimeSinceLastDamage >= ShieldAutoReplenishDelay)
+		{
+			bCanShieldAutoRelenish = true;
+		}
+		if (bCanShieldAutoRelenish)
+		{
+			Shield = FMath::Clamp(Shield + DeltaTime * ShieldAutoReplenishRate, 0.f, MaxShield);
+			UpdateHUDShield();
+		}
+	}
+}
+
 void ABlasterCharacter::UpdateHUDShield()
 {
 	UE_LOG(LogTemp, Warning, TEXT("ABlasterCharacter::UpdateHUDShield() is called, with Shield = %f"), Shield);
@@ -726,7 +761,6 @@ void ABlasterCharacter::UpdateHUDShield()
 		BlasterPlayerController->SetHUDShield(Shield, MaxShield);
 	}
 }
-
 
 void ABlasterCharacter::PollInit()
 {
@@ -750,7 +784,6 @@ void ABlasterCharacter::PollInit()
 		}
 	}
 }
-
 
 void ABlasterCharacter::UpdateDissolveMaterial(float DissolveValue)
 {
@@ -786,7 +819,6 @@ void ABlasterCharacter::SetOverlappingWeapon(AWeapon* Weapon)
 		}
 	}
 }
-
 
 void ABlasterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {

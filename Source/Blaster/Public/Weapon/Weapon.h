@@ -76,6 +76,8 @@ public:
 	*/
 	void EnableCustomDepth(bool bEnable);
 
+	bool bDestoryWeapon = false;
+
 protected:
 	virtual void BeginPlay() override;
 

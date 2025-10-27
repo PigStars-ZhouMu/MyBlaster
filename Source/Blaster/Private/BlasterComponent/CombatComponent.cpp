@@ -124,6 +124,7 @@ void UCombatComponent::Fire()
 		FHitResult HitResult;
 		TraceUnderCrosshairs(HitResult);
 		ServerFire(HitResult.ImpactPoint);
+		LocalFire(HitTarget);
 		// crosshair
 		if (EquippedWeapon)
 		{
@@ -157,6 +158,27 @@ void UCombatComponent::FireTimerFinished()
 
 void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
 {
+	if (Character && Character->IsLocallyControlled() && !Character->HasAuthority()) return;
+	LocalFire(TraceHitTarget); // becasue we move code into LocalFire(), so we just call it in this line.
+
+	//if (EquippedWeapon == nullptr) return;
+	//if (Character && CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun) // for shot gun
+	//{
+	//	Character->PlayFireMontage(bAiming);
+	//	EquippedWeapon->Fire(TraceHitTarget);
+	//	CombatState = ECombatState::ECS_Unoccupied;
+	//	return;
+	//}
+	//if (Character && (CombatState == ECombatState::ECS_Unoccupied))
+	//{
+	//	Character->PlayFireMontage(bAiming);
+	//	EquippedWeapon->Fire(TraceHitTarget);
+	//}
+}
+
+void UCombatComponent::LocalFire(const FVector_NetQuantize& TraceHitTarget)
+{
+	// multicastFire is local called safely, so here we just move it into this function.
 	if (EquippedWeapon == nullptr) return;
 	if (Character && CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun) // for shot gun
 	{
@@ -271,6 +293,7 @@ void UCombatComponent::EquipWeapon(AWeapon* WeaponToEquip)
 
 void UCombatComponent::SwapWeapons()
 {
+	if (CombatState != ECombatState::ECS_Unoccupied) return;
 	AWeapon* TempWeapon = EquippedWeapon;
 	EquippedWeapon = SecondaryWeapon;
 	SecondaryWeapon = TempWeapon;

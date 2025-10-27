@@ -104,8 +104,11 @@ void AWeapon::Fire(const FVector& HitTarget)
 			}
 		}
 	}
-	// Ammo
-	SpendRound();
+	if (HasAuthority())
+	{
+		// Ammo
+		SpendRound();
+	}
 }
 
 void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepReult)
@@ -130,6 +133,7 @@ void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActo
 void AWeapon::SetHUDAmmo()
 {
 	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(GetOwner()) : BlasterOwnerCharacter;
+
 	if (BlasterOwnerCharacter)
 	{
 		BlasterOwnerController = BlasterOwnerController == nullptr ? Cast<ABlasterPlayerController>(BlasterOwnerCharacter->Controller) : BlasterOwnerController;
@@ -142,18 +146,20 @@ void AWeapon::SetHUDAmmo()
 
 void AWeapon::SpendRound()
 {
-	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
-	SetHUDAmmo();
+	if (HasAuthority())
+	{
+		Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
+		SetHUDAmmo();
+	}
 }
 
 void AWeapon::OnRep_Ammo()
 {
 	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(GetOwner()) : BlasterOwnerCharacter;
-	if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetCombat() && IsFull())
+	if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetCombat() && IsFull() && WeaponType == EWeaponType::EWT_ShotGun)
 	{
 		BlasterOwnerCharacter->GetCombat()->JumpToShutGunEnd();
 	}
-
 	SetHUDAmmo();
 }
 

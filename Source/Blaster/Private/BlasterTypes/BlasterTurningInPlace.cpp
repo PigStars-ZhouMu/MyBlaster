@@ -4,10 +4,8 @@
 #include "BlasterTypes/BlasterTurningInPlace.h"
 
 
-BlasterTurningInPlace::BlasterTurningInPlace()
-{
+BlasterTurningInPlace::BlasterTurningInPlace() {
 }
 
-BlasterTurningInPlace::~BlasterTurningInPlace()
-{
+BlasterTurningInPlace::~BlasterTurningInPlace() {
 }

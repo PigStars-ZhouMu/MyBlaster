@@ -8,15 +8,12 @@
 #include "NiagaraComponent.h" 
 
 
-void AJumpPickup::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepReult)
-{
+void AJumpPickup::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepReult) {
 	Super::OnSphereOverlap(OverlappedComponent, OtherActor, OtherComponent, OtherBodyIndex, bFromSweep, SweepReult);
 	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
-	if (BlasterCharacter)
-	{
+	if (BlasterCharacter) {
 		UBuffComponent* Buff = BlasterCharacter->GetBuff();
-		if (Buff)
-		{
+		if (Buff) {
 			Buff->BuffJump(JumpZVelocityBuff, JumpBuffTime);
 		}
 	}

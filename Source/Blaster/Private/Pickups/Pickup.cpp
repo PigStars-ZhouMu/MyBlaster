@@ -9,8 +9,7 @@
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h"
 
-APickup::APickup()
-{
+APickup::APickup() {
 
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
@@ -35,19 +34,16 @@ APickup::APickup()
 	PickupEffectComponent->SetupAttachment(RootComponent);
 }
 
-void APickup::Destroyed()
-{
+void APickup::Destroyed() {
 	Super::Destroyed();
-	if (PickupSound)
-	{
+	if (PickupSound) {
 		UGameplayStatics::PlaySoundAtLocation(
 			this,
 			PickupSound,
 			GetActorLocation()
 		);
 	}
-	if (PickupEffect)
-	{
+	if (PickupEffect) {
 		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
 			this,
 			PickupEffect,
@@ -58,12 +54,10 @@ void APickup::Destroyed()
 }
 
 
-void APickup::BeginPlay()
-{
+void APickup::BeginPlay() {
 	Super::BeginPlay();
-	
-	if (HasAuthority())
-	{
+
+	if (HasAuthority()) {
 		GetWorldTimerManager().SetTimer(
 			BindOverlapTimer,
 			this,
@@ -73,22 +67,18 @@ void APickup::BeginPlay()
 	}
 }
 
-void APickup::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepReult)
-{
+void APickup::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepReult) {
 	return;
 }
 
-void APickup::BindOverlapTimerFinished()
-{
+void APickup::BindOverlapTimerFinished() {
 	OverlapSphere->OnComponentBeginOverlap.AddDynamic(this, &APickup::OnSphereOverlap);
 }
 
-void APickup::Tick(float DeltaTime)
-{
+void APickup::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
 
-	if (PickupMesh)
-	{
+	if (PickupMesh) {
 		PickupMesh->AddLocalRotation(FRotator(0.f, BaseTurnRate * DeltaTime, 0.f));
 	}
 }

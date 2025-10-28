@@ -1,4 +1,4 @@
- // Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Pickups/SpeedPickup.h"
@@ -7,15 +7,12 @@
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h" 
 
-void ASpeedPickup::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepReult)
-{
+void ASpeedPickup::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepReult) {
 	Super::OnSphereOverlap(OverlappedComponent, OtherActor, OtherComponent, OtherBodyIndex, bFromSweep, SweepReult);
 	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
-	if (BlasterCharacter)
-	{
+	if (BlasterCharacter) {
 		UBuffComponent* Buff = BlasterCharacter->GetBuff();
-		if (Buff)
-		{
+		if (Buff) {
 			Buff->BuffSpeed(BaseSpeedBuff, CrouchSpeedBuff, SpeedBuffTime);
 		}
 	}

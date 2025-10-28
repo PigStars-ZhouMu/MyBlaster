@@ -1,6 +1,5 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "Weapon/ProjectileRocket.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
@@ -12,9 +11,7 @@
 #include "Components/AudioComponent.h"
 #include "Weapon/RocketMovementComponent.h"
 
-
-AProjectileRocket::AProjectileRocket()
-{
+AProjectileRocket::AProjectileRocket() {
 	ProjectileMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RocketMesh"));
 	ProjectileMesh->SetupAttachment(RootComponent);
 	ProjectileMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -24,16 +21,13 @@ AProjectileRocket::AProjectileRocket()
 	RocketMovementComponent->SetIsReplicated(true);
 }
 
-void AProjectileRocket::BeginPlay()
-{
+void AProjectileRocket::BeginPlay() {
 	Super::BeginPlay();
-	if (!HasAuthority())
-	{
+	if (!HasAuthority()) {
 		CollisionBox->OnComponentHit.AddDynamic(this, &AProjectileRocket::OnHit);
 	}
 	SpawnTrailSystem();
-	if (ProjectileLoop && LoopingSoundAttenuation)
-	{
+	if (ProjectileLoop && LoopingSoundAttenuation) {
 		ProjectileLoopComponent = UGameplayStatics::SpawnSoundAttached(
 			ProjectileLoop,
 			GetRootComponent(),
@@ -51,42 +45,32 @@ void AProjectileRocket::BeginPlay()
 	}
 }
 
-void AProjectileRocket::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector Normalimpulse, const FHitResult& Hit)
-{
-	if (OtherActor == GetOwner())
-	{
+void AProjectileRocket::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector Normalimpulse, const FHitResult& Hit) {
+	if (OtherActor == GetOwner()) {
 		return;
 	}
 	ExplodeDamage();
 	StartDestoryTimer();
 
-	if (ImpactParticle)
-	{
+	if (ImpactParticle) {
 		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticle, GetActorTransform());
 	}
-	if (ImpactSound)
-	{
+	if (ImpactSound) {
 		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, GetActorLocation());
 	}
-	if (ProjectileMesh)
-	{
+	if (ProjectileMesh) {
 		ProjectileMesh->SetVisibility(false);
 	}
-	if (CollisionBox)
-	{
+	if (CollisionBox) {
 		CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
-	if (TrailSystemComponent && TrailSystemComponent->GetSystemInstance())
-	{
+	if (TrailSystemComponent && TrailSystemComponent->GetSystemInstance()) {
 		TrailSystemComponent->GetSystemInstance()->Deactivate();
 	}
-	if (ProjectileLoopComponent && ProjectileLoopComponent->IsPlaying())
-	{
+	if (ProjectileLoopComponent && ProjectileLoopComponent->IsPlaying()) {
 		ProjectileLoopComponent->Stop();
 	}
 }
 
-void AProjectileRocket::Destroyed()
-{
-
+void AProjectileRocket::Destroyed() {
 }

@@ -8,18 +8,15 @@
 #include "Weapon/Weapon.h"
 #include "Blaster/Public/BlasterTypes/CombatState.h"
 
-void UBlasterAnimInstance::NativeInitializeAnimation()
-{
+void UBlasterAnimInstance::NativeInitializeAnimation() {
 	Super::NativeInitializeAnimation();
 	BlasterCharacter = Cast<ABlasterCharacter>(TryGetPawnOwner());
 }
 
-void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaTime)
-{
+void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaTime) {
 	Super::NativeUpdateAnimation(DeltaTime);
 
-	if (BlasterCharacter ==  nullptr)
-	{
+	if (BlasterCharacter == nullptr) {
 		BlasterCharacter = Cast<ABlasterCharacter>(TryGetPawnOwner());
 	}
 	if (BlasterCharacter == nullptr) return;
@@ -56,9 +53,8 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaTime)
 	AO_Yaw = BlasterCharacter->GetAO_Yaw();
 	AO_Pitch = BlasterCharacter->GetAO_Pitch();
 
-	if (bWeaponEquipped && EquippedWeapon && EquippedWeapon->GetWeaponMesh() && BlasterCharacter->GetMesh())
-	{
-		
+	if (bWeaponEquipped && EquippedWeapon && EquippedWeapon->GetWeaponMesh() && BlasterCharacter->GetMesh()) {
+
 		LeftHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("LeftHandSocket"), ERelativeTransformSpace::RTS_World); // 获取武器上左手插槽的世界坐标
 		FVector OutPosition;
 		FRotator OutRotation;
@@ -66,8 +62,7 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaTime)
 		LeftHandTransform.SetLocation(OutPosition);
 		LeftHandTransform.SetRotation(FQuat(OutRotation));
 
-		if (BlasterCharacter->IsLocallyControlled())
-		{
+		if (BlasterCharacter->IsLocallyControlled()) {
 			FTransform RightHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("Hand_R"), ERelativeTransformSpace::RTS_World);
 			FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(RightHandTransform.GetLocation(), RightHandTransform.GetLocation() + (RightHandTransform.GetLocation() - BlasterCharacter->GetHitTarget()));
 			RightHandRotation = FMath::RInterpTo(RightHandRotation, LookAtRotation, DeltaTime, 30.f);

@@ -1,6 +1,5 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "Weapon/Projectile.h"
 #include "Components/BoxComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
@@ -14,9 +13,7 @@
 #include "NiagaraComponent.h"
 #include "NiagaraSystemInstance.h"
 
-
-AProjectile::AProjectile()
-{
+AProjectile::AProjectile() {
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
 
@@ -31,15 +28,12 @@ AProjectile::AProjectile()
 
 	//ProjectileMovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovementComponent"));
 	//ProjectileMovementComponent->bRotationFollowsVelocity = true;
-
 }
 
-void AProjectile::BeginPlay()
-{
+void AProjectile::BeginPlay() {
 	Super::BeginPlay();
 
-	if (Tracer)
-	{
+	if (Tracer) {
 		TracerComponent = UGameplayStatics::SpawnEmitterAttached(
 			Tracer,
 			CollisionBox,
@@ -50,24 +44,17 @@ void AProjectile::BeginPlay()
 		);
 	}
 
-	if (HasAuthority())
-	{
+	if (HasAuthority()) {
 		CollisionBox->OnComponentHit.AddDynamic(this, &AProjectile::OnHit);
 	}
-
-
 }
 
-void AProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector Normalimpulse, const FHitResult& Hit)
-{
-
+void AProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector Normalimpulse, const FHitResult& Hit) {
 	Destroy();
 }
 
-void AProjectile::SpawnTrailSystem()
-{
-	if (TrailSystem)
-	{
+void AProjectile::SpawnTrailSystem() {
+	if (TrailSystem) {
 		TrailSystemComponent = UNiagaraFunctionLibrary::SpawnSystemAttached(
 			TrailSystem,
 			GetRootComponent(),
@@ -80,8 +67,7 @@ void AProjectile::SpawnTrailSystem()
 	}
 }
 
-void AProjectile::StartDestoryTimer()
-{
+void AProjectile::StartDestoryTimer() {
 	GetWorldTimerManager().SetTimer(
 		DestoryTimer,
 		this,
@@ -90,19 +76,15 @@ void AProjectile::StartDestoryTimer()
 	);
 }
 
-void AProjectile::DestoryTimerFinished()
-{
+void AProjectile::DestoryTimerFinished() {
 	Destroy();
 }
 
-void AProjectile::ExplodeDamage()
-{
+void AProjectile::ExplodeDamage() {
 	APawn* FiringPawn = GetInstigator();
-	if (FiringPawn && HasAuthority())
-	{
+	if (FiringPawn && HasAuthority()) {
 		AController* FiringController = FiringPawn->GetController();
-		if (FiringController)
-		{
+		if (FiringController) {
 			UGameplayStatics::ApplyRadialDamageWithFalloff(
 				this, // world context object
 				Damage, // Base damage
@@ -120,25 +102,18 @@ void AProjectile::ExplodeDamage()
 	}
 }
 
-void AProjectile::Destroyed()
-{
+void AProjectile::Destroyed() {
 	Super::Destroyed();
-	
-	if (ImpactParticle)
-	{
+
+	if (ImpactParticle) {
 		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticle, GetActorTransform());
 	}
 
-	if (ImpactSound)
-	{
+	if (ImpactSound) {
 		UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, GetActorLocation());
 	}
 }
 
-void AProjectile::Tick(float DeltaTime)
-{
+void AProjectile::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
-
 }
-
-

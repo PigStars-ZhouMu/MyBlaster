@@ -9,8 +9,7 @@
 #include "Sound/SoundCue.h"
 
 
-void AShotGun::Fire(const FVector& HitTarget)
-{
+void AShotGun::Fire(const FVector& HitTarget) {
 	AWeapon::Fire(HitTarget);
 
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
@@ -19,30 +18,24 @@ void AShotGun::Fire(const FVector& HitTarget)
 
 
 	const USkeletalMeshSocket* MuzzleFlashSocket = GetWeaponMesh()->GetSocketByName("MuzzleFlash");
-	if (MuzzleFlashSocket)
-	{
+	if (MuzzleFlashSocket) {
 		FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
 		FVector Start = SocketTransform.GetLocation();
 
 		TMap<ABlasterCharacter*, uint32> HitMap;
-		for (uint32 i = 0; i < NumberOfPellets; i++)
-		{
+		for (uint32 i = 0; i < NumberOfPellets; i++) {
 			FHitResult FireHit;
 			WeaponTraceHit(Start, HitTarget, FireHit);
 			ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(FireHit.GetActor());
-			if (BlasterCharacter && HasAuthority() && InstigatorController)
-			{
-				if (HitMap.Contains(BlasterCharacter))
-				{
+			if (BlasterCharacter && HasAuthority() && InstigatorController) {
+				if (HitMap.Contains(BlasterCharacter)) {
 					HitMap[BlasterCharacter]++;
 				}
-				else
-				{
+				else {
 					HitMap.Emplace(BlasterCharacter, 1);
 				}
 			}
-			if (ImpactParticles)
-			{
+			if (ImpactParticles) {
 				UGameplayStatics::SpawnEmitterAtLocation(
 					GetWorld(),
 					ImpactParticles,
@@ -50,8 +43,7 @@ void AShotGun::Fire(const FVector& HitTarget)
 					FireHit.ImpactNormal.Rotation()
 				);
 			}
-			if (HitSound)
-			{
+			if (HitSound) {
 				UGameplayStatics::PlaySoundAtLocation(
 					this,
 					HitSound,
@@ -61,10 +53,8 @@ void AShotGun::Fire(const FVector& HitTarget)
 				);
 			}
 		}
-		for (auto HitPair : HitMap)
-		{
-			if (HitPair.Key && HasAuthority() && InstigatorController)
-			{
+		for (auto HitPair : HitMap) {
+			if (HitPair.Key && HasAuthority() && InstigatorController) {
 				UGameplayStatics::ApplyDamage(
 					HitPair.Key,
 					Damage * HitPair.Value,

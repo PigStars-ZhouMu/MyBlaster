@@ -1,6 +1,5 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "Weapon/HitScanWeapon.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "Character/BlasterCharacter.h"
@@ -11,27 +10,22 @@
 #include "DrawDebugHelpers.h"
 #include "Weapon/WeaponType.h"
 
-
-void AHitScanWeapon::Fire(const FVector& HitTarget)
-{
+void AHitScanWeapon::Fire(const FVector& HitTarget) {
 	Super::Fire(HitTarget);
 
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
 	if (OwnerPawn == nullptr) return;
 	AController* InstigatorController = OwnerPawn->GetController();
-	
 
 	const USkeletalMeshSocket* MuzzleFlashSocket = GetWeaponMesh()->GetSocketByName("MuzzleFlash");
-	if (MuzzleFlashSocket)
-	{
+	if (MuzzleFlashSocket) {
 		FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
 		FVector Start = SocketTransform.GetLocation();
 		FHitResult FireHit;
 		WeaponTraceHit(Start, HitTarget, FireHit);
 
 		ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(FireHit.GetActor());
-		if (BlasterCharacter && HasAuthority() && InstigatorController)
-		{
+		if (BlasterCharacter && HasAuthority() && InstigatorController) {
 			UGameplayStatics::ApplyDamage(
 				BlasterCharacter,
 				Damage,
@@ -41,8 +35,7 @@ void AHitScanWeapon::Fire(const FVector& HitTarget)
 			);
 		}
 
-		if (ImpactParticles)
-		{
+		if (ImpactParticles) {
 			UGameplayStatics::SpawnEmitterAtLocation(
 				GetWorld(),
 				ImpactParticles,
@@ -50,24 +43,21 @@ void AHitScanWeapon::Fire(const FVector& HitTarget)
 				FireHit.ImpactNormal.Rotation()
 			);
 		}
-		if (HitSound)
-		{
+		if (HitSound) {
 			UGameplayStatics::PlaySoundAtLocation(
 				this,
 				HitSound,
 				FireHit.ImpactPoint
 			);
 		}
-		if (MuzzleFlash)
-		{
+		if (MuzzleFlash) {
 			UGameplayStatics::SpawnEmitterAtLocation(
 				GetWorld(),
 				MuzzleFlash,
 				SocketTransform
 			);
 		}
-		if (FireSound)
-		{
+		if (FireSound) {
 			UGameplayStatics::PlaySoundAtLocation(
 				this,
 				FireSound,
@@ -77,11 +67,10 @@ void AHitScanWeapon::Fire(const FVector& HitTarget)
 	}
 }
 
-void AHitScanWeapon::WeaponTraceHit(const FVector& TraceStart, const FVector& HitTarget, FHitResult& OutHit)
-{
+void AHitScanWeapon::WeaponTraceHit(const FVector& TraceStart, const FVector& HitTarget, FHitResult& OutHit) {
+	// inorder to handle 'lap', so we allow the weapon effect can be spawn locally. that case the scatter is diff in server and client.
 	UWorld* World = GetWorld();
-	if (World)
-	{
+	if (World) {
 		FVector End = bUseScatter ? TraceEndWithScatter(TraceStart, HitTarget) : (TraceStart + (HitTarget - TraceStart) * 1.25f);
 		World->LineTraceSingleByChannel(
 			OutHit,
@@ -90,12 +79,13 @@ void AHitScanWeapon::WeaponTraceHit(const FVector& TraceStart, const FVector& Hi
 			ECollisionChannel::ECC_Visibility
 		);
 		FVector BeamEnd = End;
-		if (OutHit.bBlockingHit)
-		{
+		if (OutHit.bBlockingHit) {
 			BeamEnd = OutHit.ImpactPoint;
 		}
-		if (BeamParticles)
-		{
+
+		DrawDebugSphere(GetWorld(), BeamEnd, 16.f, 12, FColor::Orange, true);
+
+		if (BeamParticles) {
 			UParticleSystemComponent* Beam = UGameplayStatics::SpawnEmitterAtLocation(
 				World,
 				BeamParticles,
@@ -103,16 +93,14 @@ void AHitScanWeapon::WeaponTraceHit(const FVector& TraceStart, const FVector& Hi
 				FRotator::ZeroRotator,
 				true
 			);
-			if (Beam)
-			{
+			if (Beam) {
 				Beam->SetVectorParameter(FName("Target"), BeamEnd);
 			}
 		}
 	}
 }
 
-FVector AHitScanWeapon::TraceEndWithScatter(const FVector& TraceStart, const FVector& HitTarget)
-{
+FVector AHitScanWeapon::TraceEndWithScatter(const FVector& TraceStart, const FVector& HitTarget) {
 	FVector ToTargetNomalized = (HitTarget - TraceStart).GetSafeNormal();
 	FVector SphereCenter = TraceStart + ToTargetNomalized * DistanceToSphere;
 	FVector RandVec = UKismetMathLibrary::RandomUnitVector() * FMath::FRandRange(0.f, SphereRadius);

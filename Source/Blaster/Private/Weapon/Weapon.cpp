@@ -1,20 +1,18 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "Weapon/Weapon.h"
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Character/BlasterCharacter.h"
 #include "Net/UnrealNetwork.h"
 #include "Animation/AnimationAsset.h"
-#include "Components/SkeletalMeshComponent.h" 
+#include "Components/SkeletalMeshComponent.h"
 #include "Weapon/Casing.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "Blaster/Public/PlayerController/BlasterPlayerController.h"
 #include "BlasterComponent/CombatComponent.h"
 
-AWeapon::AWeapon()
-{
+AWeapon::AWeapon() {
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
 	SetReplicateMovement(true);
@@ -38,63 +36,45 @@ AWeapon::AWeapon()
 
 	PickupWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("PickupWidget"));
 	PickupWidget->SetupAttachment(RootComponent);
-
-
 }
 
-void AWeapon::EnableCustomDepth(bool bEnable)
-{
-	if (WeaponMesh)
-	{
+void AWeapon::EnableCustomDepth(bool bEnable) {
+	if (WeaponMesh) {
 		WeaponMesh->SetRenderCustomDepth(bEnable);
-
 	}
 }
 
-void AWeapon::BeginPlay()
-{
+void AWeapon::BeginPlay() {
 	Super::BeginPlay();
 
-	if (PickupWidget)
-	{
+	if (PickupWidget) {
 		PickupWidget->SetVisibility(false);
 	}
-	
-	if (HasAuthority())
-	{
-		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-		AreaSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
-		AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &AWeapon::OnSphereOverlap);
-		AreaSphere->OnComponentEndOverlap.AddDynamic(this, &AWeapon::OnSphereEndOverlap);
-	}
 
+	// becasue there we just show the widget, which is allowed on any place. so we not need HasAuthority() function.
+	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	AreaSphere->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+	AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &AWeapon::OnSphereOverlap);
+	AreaSphere->OnComponentEndOverlap.AddDynamic(this, &AWeapon::OnSphereEndOverlap);
 }
 
-
-void AWeapon::ShowPickupWidget(bool bShowWidget)
-{
-	if (PickupWidget)
-	{
+void AWeapon::ShowPickupWidget(bool bShowWidget) {
+	if (PickupWidget) {
 		PickupWidget->SetVisibility(bShowWidget);
 	}
 }
 
-void AWeapon::Fire(const FVector& HitTarget)
-{
-	if (FireAnimation)
-	{
+void AWeapon::Fire(const FVector& HitTarget) {
+	if (FireAnimation) {
 		WeaponMesh->PlayAnimation(FireAnimation, false);
 	}
-	if (CasingClass)
-	{
+	if (CasingClass) {
 		const USkeletalMeshSocket* AmmoEjectSocket = WeaponMesh->GetSocketByName(FName("AmmoEject"));
-		if (AmmoEjectSocket)
-		{
+		if (AmmoEjectSocket) {
 			FTransform SocketTransform = AmmoEjectSocket->GetSocketTransform(WeaponMesh);
 
 			UWorld* World = GetWorld();
-			if (World)
-			{
+			if (World) {
 				//UE_LOG(LogTemp, Warning, TEXT("SpawnActor!"));
 				World->SpawnActor<ACasing>(
 					CasingClass,
@@ -104,99 +84,77 @@ void AWeapon::Fire(const FVector& HitTarget)
 			}
 		}
 	}
-	if (HasAuthority())
-	{
+	if (HasAuthority()) {
 		// Ammo
 		SpendRound();
 	}
 }
 
-void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepReult)
-{
+void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepReult) {
 	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
-	if (BlasterCharacter)
-	{
+	if (BlasterCharacter) {
 		BlasterCharacter->SetOverlappingWeapon(this);
 	}
 }
 
-void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex)
-{
+void AWeapon::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex) {
 	ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
-	if (BlasterCharacter)
-	{
+	if (BlasterCharacter) {
 		BlasterCharacter->SetOverlappingWeapon(nullptr);
 	}
 }
 
-
-void AWeapon::SetHUDAmmo()
-{
+void AWeapon::SetHUDAmmo() {
 	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(GetOwner()) : BlasterOwnerCharacter;
 
-	if (BlasterOwnerCharacter)
-	{
+	if (BlasterOwnerCharacter) {
 		BlasterOwnerController = BlasterOwnerController == nullptr ? Cast<ABlasterPlayerController>(BlasterOwnerCharacter->Controller) : BlasterOwnerController;
-		if (BlasterOwnerController)
-		{
+		if (BlasterOwnerController) {
 			BlasterOwnerController->SetHUDWeaponAmmo(Ammo);
 		}
 	}
 }
 
-void AWeapon::SpendRound()
-{
-	if (HasAuthority())
-	{
+void AWeapon::SpendRound() {
+	if (HasAuthority()) {
 		Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
 		SetHUDAmmo();
 	}
 }
 
-void AWeapon::OnRep_Ammo()
-{
+void AWeapon::OnRep_Ammo() {
 	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(GetOwner()) : BlasterOwnerCharacter;
-	if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetCombat() && IsFull() && WeaponType == EWeaponType::EWT_ShotGun)
-	{
+	if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetCombat() && IsFull() && WeaponType == EWeaponType::EWT_ShotGun) {
 		BlasterOwnerCharacter->GetCombat()->JumpToShutGunEnd();
 	}
 	SetHUDAmmo();
 }
 
-void AWeapon::OnRep_Owner()
-{
+void AWeapon::OnRep_Owner() {
 	Super::OnRep_Owner();
-	if (Owner == nullptr)
-	{
+	if (Owner == nullptr) {
 		BlasterOwnerCharacter = nullptr;
 		BlasterOwnerController = nullptr;
 	}
-	else
-	{
+	else {
 		BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(Owner) : BlasterOwnerCharacter;
-		if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetEquippedWeapon() && BlasterOwnerCharacter->GetEquippedWeapon() == this)
-		{
-			
+		if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetEquippedWeapon() && BlasterOwnerCharacter->GetEquippedWeapon() == this) {
 		}
 		SetHUDAmmo();
 	}
 }
 
-void AWeapon::SetWeaponState(EWeaponState State)
-{
+void AWeapon::SetWeaponState(EWeaponState State) {
 	WeaponState = State;
 	OnWeaponStateSet();
 }
 
-void AWeapon::OnRep_WeaponState()
-{
+void AWeapon::OnRep_WeaponState() {
 	OnWeaponStateSet();
 }
 
-void AWeapon::OnWeaponStateSet()
-{
-	switch (WeaponState)
-	{
+void AWeapon::OnWeaponStateSet() {
+	switch (WeaponState) {
 	case EWeaponState::EWS_Equipped:
 		OnEquipped();
 		break;
@@ -211,8 +169,7 @@ void AWeapon::OnWeaponStateSet()
 	}
 }
 
-void AWeapon::OnEquipped()
-{
+void AWeapon::OnEquipped() {
 	ShowPickupWidget(false);
 	AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponMesh->SetSimulatePhysics(false);
@@ -221,25 +178,21 @@ void AWeapon::OnEquipped()
 	EnableCustomDepth(false);
 }
 
-void AWeapon::OnEquippedSecondary()
-{
+void AWeapon::OnEquippedSecondary() {
 	ShowPickupWidget(false);
 	AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	WeaponMesh->SetSimulatePhysics(false);
 	WeaponMesh->SetEnableGravity(false);
 	WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	EnableCustomDepth(true);
-	if (GetWeaponMesh())
-	{
+	if (GetWeaponMesh()) {
 		GetWeaponMesh()->SetCustomDepthStencilValue(CUSTOM_DEPTH_TAN);
 		GetWeaponMesh()->MarkRenderStateDirty();
 	}
 }
 
-void AWeapon::OnDroppped()
-{
-	if (HasAuthority())
-	{
+void AWeapon::OnDroppped() {
+	if (HasAuthority()) {
 		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	}
 	WeaponMesh->SetSimulatePhysics(true);
@@ -253,35 +206,29 @@ void AWeapon::OnDroppped()
 	EnableCustomDepth(true);
 }
 
-void AWeapon::Tick(float DeltaTime)
-{
+void AWeapon::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
-
 }
 
-void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
+void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AWeapon, WeaponState);
 	DOREPLIFETIME(AWeapon, Ammo);
 }
 
-void AWeapon::Dropped()
-{
+void AWeapon::Dropped() {
 	SetWeaponState(EWeaponState::EWS_Dropped);
 
 	FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
 	WeaponMesh->DetachFromComponent(DetachRules);
-	
+
 	SetOwner(nullptr);
 	BlasterOwnerCharacter = nullptr;
 	BlasterOwnerController = nullptr;
 }
 
-void AWeapon::AddAmmo(int32 AmmoToAdd)
-{
+void AWeapon::AddAmmo(int32 AmmoToAdd) {
 	Ammo = FMath::Clamp(Ammo - AmmoToAdd, 0, MagCapacity);
 	SetHUDAmmo();
 }
-

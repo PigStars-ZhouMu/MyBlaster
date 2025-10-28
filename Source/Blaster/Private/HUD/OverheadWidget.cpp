@@ -4,20 +4,16 @@
 #include "HUD/OverheadWidget.h"
 #include "Components/TextBlock.h"
 
-void UOverheadWidget::SetDisplaytext(FString TextToDispaly)
-{
-	if (DisplayText)
-	{
+void UOverheadWidget::SetDisplaytext(FString TextToDispaly) {
+	if (DisplayText) {
 		DisplayText->SetText(FText::FromString(TextToDispaly));
 	}
 }
 
-void UOverheadWidget::ShowPlayNetRole(APawn* InPawn)
-{
+void UOverheadWidget::ShowPlayNetRole(APawn* InPawn) {
 	ENetRole LocalRole = InPawn->GetLocalRole();
 	FString Role;
-	switch (LocalRole)
-	{
+	switch (LocalRole) {
 	case ENetRole::ROLE_Authority:
 		Role = FString("Authority");
 		break;
@@ -35,8 +31,7 @@ void UOverheadWidget::ShowPlayNetRole(APawn* InPawn)
 	SetDisplaytext(LocalRoleString);
 }
 
-void UOverheadWidget::NativeDestruct()
-{
+void UOverheadWidget::NativeDestruct() {
 	RemoveFromParent();
 	Super::NativeDestruct();
 }

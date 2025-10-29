@@ -1657,3 +1657,403 @@ void UCombatComponent::OnRep_CarriedAmmo()
     }
 }
 ```
+
+## 拾取
+
+### Healing the Character
+
+#### SpeedBuff的流程（多人游戏）
+
+##### 接触物品
+
+```c++
+// SpeedPickup.cpp - OnSphereOverlap
+void ASpeedPickup::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, ...)
+{
+    Super::OnSphereOverlap(...); // 调用基类处理（播放特效和音效）
+  
+    ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor);
+    if (BlasterCharacter)
+    {
+        UBuffComponent* Buff = BlasterCharacter->GetBuff();
+        if (Buff)
+        {
+            // 触发速度增益
+            Buff->BuffSpeed(BaseSpeedBuff, CrouchSpeedBuff, SpeedBuffTime);
+        }
+    }
+  
+    Destroy(); // 销毁拾取物
+}
+```
+
+##### BuffComponent处理
+
+```c++
+void UBuffComponent::BuffSpeed(float BuffBaseSpeed, float BuffCrouchSpeed, float BuffTime)
+{
+    if (Character == nullptr) return;
+  
+    // 设置定时器，Buff时间结束后恢复速度
+    Character->GetWorldTimerManager().SetTimer(
+        SpeedBuffTimer,
+        this,
+        &UBuffComponent::ResetSpeed,
+        BuffTime
+    );
+
+    // 在服务器上直接修改角色移动速度
+    if (Character->GetCharacterMovement())
+    {
+        Character->GetCharacterMovement()->MaxWalkSpeed = BuffBaseSpeed;
+        Character->GetCharacterMovement()->MaxWalkSpeedCrouched = BuffCrouchSpeed;
+    }
+  
+    // 关键：通过多播RPC同步到所有客户端
+    MulticastSpeedBuff(BuffBaseSpeed, BuffCrouchSpeed);
+}
+```
+
+##### 网络同步（multicast）
+
+关于此处的multicast，值得注意的是在APickup::BeginPlay()中，绑定AddDynamic之前判断了HasAuthority，也就是说，OnSphereOverlap函数是只会在服务器上执行的，这也就是为什么需要multicast函数。
+
+```c++
+void UBuffComponent::MulticastSpeedBuff_Implementation(float BaseSpeed, float CroutSpeed)
+{
+    // 在所有客户端（包括服务器）上同步速度变更
+    Character->GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
+    Character->GetCharacterMovement()->MaxWalkSpeedCrouched = CroutSpeed;
+}
+```
+
+##### Buff结束
+
+```c++
+void UBuffComponent::ResetSpeed()
+{
+    if (Character && Character->GetCharacterMovement())
+    {
+        // 恢复初始速度
+        Character->GetCharacterMovement()->MaxWalkSpeed = InitialBaseSpeed;
+        Character->GetCharacterMovement()->MaxWalkSpeedCrouched = InitialCrouchSpeed;
+  
+        // 再次通过多播RPC同步速度恢复
+        MulticastSpeedBuff(InitialBaseSpeed, InitialCrouchSpeed);
+    }
+}
+```
+
+#### Multicast RPC
+
+关于Multicast RPC函数究竟是谁传递给谁，在监听服务器-客户端结构下，究竟是怎么运行的？
+
+假设监听服务器上的本地玩家PlayerA拾取了速度道具：
+
+```
+监听服务器 (Listen Server Authority)
+├── 本地玩家PlayerA拾取道具
+├── BuffSpeed() 在服务器权威执行
+├── 直接修改PlayerA的速度（零延迟）
+├── 调用MulticastSpeedBuff()
+│   ├── 本地执行：PlayerA实例 (ROLE_Authority)
+│   └── 网络发送：发送RPC到所有远程客户端
+│
+网络传输层
+├── RPC数据包 → PlayerB的远程客户端
+├── RPC数据包 → PlayerC的远程客户端
+└── RPC数据包 → 其他远程客户端...
+
+远程客户端B (Remote Client B)
+├── 接收MulticastSpeedBuff RPC
+├── 执行MulticastSpeedBuff_Implementation()
+└── 修改PlayerA的模拟代理实例速度
+
+远程客户端C (Remote Client C)
+├── 接收MulticastSpeedBuff RPC
+├── 执行MulticastSpeedBuff_Implementation()
+└── 修改PlayerA的模拟代理实例速度
+```
+
+监听服务器上的角色实例：
+
+* **PlayerA** ：`ROLE_Authority` + `ROLE_AutonomousProxy`（本地玩家）
+* **PlayerB的代理** ：`ROLE_Authority`（服务器权威控制的远程玩家代理）
+* **PlayerC的代理** ：`ROLE_Authority`（服务器权威控制的远程玩家代理）
+
+远程客户端上的角色实例：
+
+* **PlayerB客户端上的PlayerA** ：`ROLE_SimulatedProxy`（模拟代理）
+* **PlayerB客户端上的PlayerB** ：`ROLE_AutonomousProxy`（本地控制）
+* **PlayerC客户端上的PlayerA** ：`ROLE_SimulatedProxy`（模拟代理）
+
+## 项目梳理
+
+### Ammo系统
+
+#### 核心组件与类
+
+##### 武器类 ([AWeapon](vscode-file://vscode-app/Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/vs/code/electron-browser/workbench/workbench.html))
+
+* **弹药属性**
+  * `Ammo` - 当前弹匣子弹数（带网络复制）
+  * `MagCapacity` - 弹匣容量
+  * `WeaponType` - 武器类型枚举
+* **弹药管理函数**
+  * `SetHUDAmmo()` - 更新HUD弹药显示
+  * `SpendRound()` - 消耗单发子弹
+  * `AddAmmo(int32 AmmoToAdd)` - 添加弹药
+  * `OnRep_Ammo()` - 弹药网络复制回调
+* **状态查询函数**
+  * `IsEmpty()` - 检查是否为空
+  * `IsFull()` - 检查是否装满
+
+##### 战斗组件 ([UCombatComponent](vscode-file://vscode-app/Applications/Visual%20Studio%20Code.app/Contents/Resources/app/out/vs/code/electron-browser/workbench/workbench.html))
+
+* **备用弹药系统**
+  * `CarriedAmmo` - 当前备用弹药数（带网络复制）
+  * `CarriedAmmoMap` - 各武器类型弹药映射表
+  * 初始弹药配置：`StartAssultRifleAmmo`等各武器初始弹药
+
+#### Ammo初始化
+
+`UCombatComponent::InitializeCarriedAmmo()`：初始化 `CarriedAmmoMap`
+
+#### 射击和弹药消耗
+
+##### 射击判断
+
+整体的变化逻辑如下：
+
+```
+服务器端：
+MulticastFire_Implementation() → Fire() → SpendRound() → 修改Ammo + SetHUDAmmo()
+                                                    ↓
+                                           网络复制Ammo到客户端
+
+客户端：
+MulticastFire_Implementation() → Fire() → SpendRound() → 不修改Ammo，不调用SetHUDAmmo()
+OnRep_Ammo() → SetHUDAmmo() (接收到服务器的Ammo值变化)
+```
+
+
+```c++
+bool UCombatComponent::CanFire()
+{
+	if (EquippedWeapon == nullptr) return false;
+	if (!EquippedWeapon->IsEmpty() && bCanFire && CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun) return true; // for shot gun
+	return !EquippedWeapon->IsEmpty() && bCanFire && (CombatState == ECombatState::ECS_Unoccupied);
+}
+```
+
+此处为ShotGun实现了一个特殊逻辑：可以再换弹的时候开火，打断换弹。
+
+值得一提的是，此处的 `bool bCanFire`是和一个Timer叫做 `FireTimer`相关联的，用来控制枪械的开火延迟，具体的延迟参数为 `FireDelay`。实现逻辑在：`UCombatComponent::StartFireTimer()`, `UCombatComponent::FireTimerFinished()`
+
+##### 射击
+
+点击射击按钮（鼠标左键）之后，会在 `Character`中调用 `AblasterCharacter::FireButtonPress`，`UCombatComponent::FireButtonPressed(Bool bPressed)`会被随之调用，真正的实现在 `UCombatComponent::Fire()`内。
+
+```c++
+void UCombatComponent::Fire()
+{
+	if (CanFire())
+	{
+		bCanFire = false;
+
+		//ServerFire(HitTarget);
+		FHitResult HitResult;
+		TraceUnderCrosshairs(HitResult);
+		ServerFire(HitResult.ImpactPoint);
+		// crosshair
+		if (EquippedWeapon)
+		{
+			CrosshairShootingFactor = 1.f;
+		}
+		StartFireTimer();
+	}
+}
+```
+
+其中 `TraceUnderCrosshairs()`和 `ServerFireTimer()`是关键逻辑。前者主要实现一个射线追踪，后者涉及射击的具体操作，包括Ammo的减少，我们先来看后者。
+
+```c++
+void UCombatComponent::ServerFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
+{
+	MulticastFire(TraceHitTarget);
+}
+
+void UCombatComponent::MulticastFire_Implementation(const FVector_NetQuantize& TraceHitTarget)
+{
+	if (EquippedWeapon == nullptr) return;
+	if (Character && CombatState == ECombatState::ECS_Reloading && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_ShotGun) // for shot gun
+	{
+		Character->PlayFireMontage(bAiming);
+		EquippedWeapon->Fire(TraceHitTarget);
+		CombatState = ECombatState::ECS_Unoccupied;
+		return;
+	}
+	if (Character && (CombatState == ECombatState::ECS_Unoccupied))
+	{
+		Character->PlayFireMontage(bAiming);
+		EquippedWeapon->Fire(TraceHitTarget);
+	}
+}
+```
+
+ServerRPC和MulticastRPC，在此处被调用，换句话说，MulticastRPC的内容会在所有机器上执行，**也就是说，从这个函数之后的功能是在所有机器上执行的**。其中的主要逻辑是位于EquippedWeapon的Fire和位于Character的PlayFireMontage（值得一提的是，此处的Weapon会有不同的类型，此处我们只讨论AWeapon中的逻辑，因为不同武器并不会涉及Ammo逻辑的不同）。
+
+而关于Ammo的主要逻辑就在Weapon的Fire中调用的 `SpendRound`中。
+
+```c++
+void AWeapon::SpendRound()
+{
+	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
+	SetHUDAmmo();
+}
+```
+
+在SpendRound中，执行了Ammo减少的逻辑，同时执行了AWeapon::SetHUDAmmo()，其实Ammo减少的逻辑很容易理解，但是Ammo在HUD上更新的逻辑却略复杂。对于AWeapon::SetHUDAmmo()的核心逻辑：BlasterOwnerController->SetHUDWeaponAmmo(Ammo);，本质上还是回归了Controller的逻辑，这符合所有HUD逻辑都归Controller管理的设计理念。
+
+```c++
+void ABlasterPlayerController::SetHUDWeaponAmmo(int32 Ammo)
+{
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	bool bHUDValid = BlasterHUD &&
+		BlasterHUD->CharacterOverlay &&
+		BlasterHUD->CharacterOverlay->WeaponAmmoAmount;
+	if (bHUDValid)
+	{
+		FString WeaponAmmoText = FString::Printf(TEXT("%d"), Ammo);
+		BlasterHUD->CharacterOverlay->WeaponAmmoAmount->SetText(FText::FromString(WeaponAmmoText));
+	}
+	else
+	{
+		bInitializeWeaponAmmo = true;
+		HUDWeaponAmmo = Ammo;
+	}
+}
+```
+
+上述函数经过检查后执行SetText逻辑。但是如果HUD先实例化，此时可能CharacterOverlay还没有初始化，这个时候就会导致bHUDValid为false，下面的else就是为了处理这种情况，它会将bInitializeWeaponAmmo设定为true，同时使用HUDWeaponAmmo记录Weapon传进来的Ammo，等到随后Overlay实例化了再对HUD进行设置，这部分逻辑实现在PolInit()函数中。
+
+#### 重装弹药
+
+Reload逻辑依旧是从BlasterCharacter中的ReloadButtonPressed开始，随后调用Combat::Relaod()。在Combat::Reload()中，调用了ServerReload这个ServerRPC。其中ServerRPC将调用HandleReload()，而HandleReload()中调用Character来播放动画Montage。
+
+```c++
+void UCombatComponent::Reload()
+{
+	if (CarriedAmmo > 0 && CombatState == ECombatState::ECS_Unoccupied)
+	{
+		ServerReload();
+	}
+}
+void UCombatComponent::ServerReload_Implementation()
+{
+	if (Character == nullptr || EquippedWeapon == nullptr) return;
+
+	CombatState = ECombatState::ECS_Reloading;
+	HandleReload();
+}
+void UCombatComponent::HandleReload()
+{
+	Character->PlayReloadMontage();
+}
+```
+
+接下来就是蓝图逻辑，当ReloadMontage播放完毕的时候，会触发Combat::FinishReloading()函数，具体的逻辑如下：
+
+![1755010495500](image/UnrealEngine5C++MultiplayerShooter/1755010495500.png)
+
+```c++
+void UCombatComponent::FinishReloading()
+{
+	if (Character == nullptr) return;
+	if (Character->HasAuthority())
+	{
+		CombatState = ECombatState::ECS_Unoccupied;
+		UpdateAmmoValues();
+	}
+	if (bFirebuttonPressed)
+	{
+		Fire();
+	}
+}
+```
+
+在FinishReloading中，如果Character是权威的，那么会调用UpdateAmmoValue()，同时将Combat状态修改为未被占用，而CombatState是一个Replicated的变量。所以在此时的Server上，调用了UpdateAmmoValues()，而在客户端上，调用了OnRep_CombatState()。我们先看Server上的逻辑如下：
+
+```c++
+void UCombatComponent::UpdateAmmoValues()
+{
+	if (Character == nullptr || EquippedWeapon == nullptr) return;
+
+	int32 ReloadAmount = AmountToReload();
+	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
+	{
+		CarriedAmmoMap[EquippedWeapon->GetWeaponType()] -= ReloadAmount;
+		CarriedAmmo = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+	}
+	Controller = Controller == nullptr ? Cast<ABlasterPlayerController>(Character->Controller) : Controller;
+	if (Controller)
+	{
+		Controller->SetHUDCarriedAmmo(CarriedAmmo);
+	}
+	EquippedWeapon->AddAmmo(-ReloadAmount);
+}
+int32 UCombatComponent::AmountToReload()
+{
+	if (EquippedWeapon == nullptr) return 0;
+	int32 RoomInMag = EquippedWeapon->GetMagCapacity() - EquippedWeapon->GetAmmo();
+
+	if (CarriedAmmoMap.Contains(EquippedWeapon->GetWeaponType()))
+	{
+		int32 AmountCarried = CarriedAmmoMap[EquippedWeapon->GetWeaponType()];
+		int Least = FMath::Min(RoomInMag, AmountCarried);
+		return FMath::Clamp(RoomInMag, 0, Least);
+	}
+	return 0;
+}
+```
+
+在UpdateAmmoValues中，会将ReloadAmount从CarriedMap中减去，再调用AddAmmo给Weapon加上相应的ReloadAmount。
+
+前者在减少了CarriedAmmo之后，调用了Controller::SetHUDCarriedAmmo()，同时由于CarriedAmmo是Replicated参数，所以在Server改变CarriedAmmo的时候，客户端就会执行OnRep_CarriedAmmo()，而在对应的OnRep函数中，最主要的逻辑就是Controller::SetHUDCarriedAmmo()；
+
+后者给Weapon添加了Ammo后，调用了SetHUDAmmo()，最终调用了Controller::SetHUDWeaponAmmo()，同时由于Weapon::Ammo是Replicated参数，所以Server在改变Ammo的同时，客户端就会执行Weapon::OnRep_Ammo()，而其中的主要逻辑仍然是SetHUDAmmo()，最终还是调用了Controller::SetHUDWeaponAmmo()。
+
+其实可以看到，对于CarriedAmmo和Ammo的设计基本是一致的，只不过两者位于的类不同，前者位于Combat后者位于Weapon。
+
+在客户端上，Combat::OnRep_CombatState()中的实现如下：
+
+```c++
+void UCombatComponent::OnRep_CombatState()
+{
+	switch (CombatState)
+	{
+	case ECombatState::ECS_Reloading:
+		HandleReload();
+		break;
+	case ECombatState::ECS_Unoccupied:
+		if (bFirebuttonPressed)
+		{
+			Fire();
+		}
+		break;
+	case ECombatState::ECS_ThrowingGrenade:
+		if (Character && !Character->IsLocallyControlled())
+		{
+			Character->PlayThrowGrenadeMontage();
+			AttachActorToLeftHand(EquippedWeapon);
+			ShowAttachGrenade(true);
+		}
+		break;
+
+	default:
+		break;
+	}
+}
+```
+
+也就是说，此处只是保证了Reload动画结束之后玩家可以立刻fire。

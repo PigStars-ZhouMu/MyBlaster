@@ -16,6 +16,7 @@
 #include "Sound/SoundCue.h"
 #include "Blaster/Public/Character/BlasterAnimInstance.h"
 #include "Blaster/Public/Weapon/Projectile.h"
+#include "Blaster/Public/Weapon/ShotGun.h"
 
 // Sets default values for this component's properties
 UCombatComponent::UCombatComponent() {
@@ -99,21 +100,20 @@ void UCombatComponent::Fire() {
 	if (CanFire()) {
 		bCanFire = false;
 
-		//ServerFire(HitTarget);
-		FHitResult HitResult;
-		TraceUnderCrosshairs(HitResult);
 		if (EquippedWeapon) {
 			// crosshair
 			CrosshairShootingFactor = 1.f;
 
 			switch (EquippedWeapon->FireType) {
 			case EFireType::EFT_Projectile:
-				FireProjectileWeapon(HitResult);
+				FireProjectileWeapon();
 				break;
 			case EFireType::EFT_HitScan:
-				FireHitScanWeapon(HitResult);
+				FireHitScanWeapon();
 				break;
-
+			case EFireType::EFT_ShotGun:
+				FireShotGun();
+				break;
 			default:
 				break;
 			}
@@ -122,16 +122,27 @@ void UCombatComponent::Fire() {
 	}
 }
 
-void UCombatComponent::FireProjectileWeapon(FHitResult& HitResult) {
-	ServerFire(HitResult.ImpactPoint);
-	LocalFire(HitResult.ImpactPoint);
+void UCombatComponent::FireProjectileWeapon() {
+	LocalFire(HitTarget);
+	ServerFire(HitTarget);
 }
 
-void UCombatComponent::FireHitScanWeapon(FHitResult& HitResult) {
-
+void UCombatComponent::FireHitScanWeapon() {
+	if (EquippedWeapon) {
+		HitTarget = EquippedWeapon->bUseScatter ? EquippedWeapon->TraceEndWithScatter(HitTarget) : HitTarget;
+		LocalFire(HitTarget);
+		ServerFire(HitTarget);
+	}
 }
 
-void UCombatComponent::FireShotGun(FHitResult& HitResult) {
+void UCombatComponent::FireShotGun() {
+	AShotGun* ShotGun = Cast<AShotGun>(EquippedWeapon);
+	if (ShotGun) {
+		TArray<FVector> HitTargets;
+		ShotGun->ShotGunTraceEndWithScatter(HitTarget, HitTargets);
+	}
+
+
 }
 
 void UCombatComponent::StartFireTimer() {

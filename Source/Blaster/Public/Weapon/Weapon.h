@@ -93,6 +93,10 @@ public:
 	UPROPERTY(EditAnywhere)
 	EFireType FireType;
 
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
+	bool bUseScatter = false;
+	FVector TraceEndWithScatter(const FVector& HitTarget); // we want to call it in combatcomponent.cpp
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void OnWeaponStateSet();
@@ -117,6 +121,15 @@ protected:
 		UPrimitiveComponent* OtherComponent,
 		int32 OtherBodyIndex
 	);
+
+	/*
+* trace end with scatter
+*/
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
+	float DistanceToSphere = 800.f;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
+	float SphereRadius = 75.f;
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties");

@@ -65,9 +65,9 @@ protected:
 	
 
 	void Fire();
-	void FireProjectileWeapon(FHitResult& HitResult);
-	void FireHitScanWeapon(FHitResult& HitResult);
-	void FireShotGun(FHitResult& HitResult);
+	void FireProjectileWeapon();
+	void FireHitScanWeapon();
+	void FireShotGun();
 	void LocalFire(const FVector_NetQuantize& TraceHitTarget);
 
 	UFUNCTION(Server, Reliable)

@@ -9,13 +9,11 @@
 #include "Blaster/Public/BlasterTypes/CombatState.h"
 #include "CombatComponent.generated.h"
 
-
-UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class BLASTER_API UCombatComponent : public UActorComponent
-{
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
+class BLASTER_API UCombatComponent : public UActorComponent {
 	GENERATED_BODY()
 
-public:	
+public:
 	UCombatComponent();
 	friend class ABlasterCharacter;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
@@ -24,9 +22,6 @@ public:
 
 	void EquipWeapon(class AWeapon* WeaponToEquip);
 	void SwapWeapons();
-
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastFire(const FVector_NetQuantize& TraceHitTarget);
 
 	void Reload();
 	// you must change state before animation is done.
@@ -46,7 +41,7 @@ public:
 	void LaunchGrenade();
 
 	UFUNCTION(Server, Reliable)
-	void ServerLaunchGrenade(const FVector_NetQuantize& Target );
+	void ServerLaunchGrenade(const FVector_NetQuantize& Target);
 
 	void PickupAmmo(EWeaponType WeaponType, int32 AmmoAmount);
 protected:
@@ -62,16 +57,25 @@ protected:
 
 	UFUNCTION()
 	void OnRep_SecondaryWeapon();
-	
 
 	void Fire();
 	void FireProjectileWeapon();
 	void FireHitScanWeapon();
 	void FireShotGun();
 	void LocalFire(const FVector_NetQuantize& TraceHitTarget);
+	void LocalShotGunFire(const TArray<FVector_NetQuantize>& TraceHitTargets);
 
 	UFUNCTION(Server, Reliable)
 	void ServerFire(const FVector_NetQuantize& TraceHitTarget);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastFire(const FVector_NetQuantize& TraceHitTarget);
+
+	UFUNCTION(Server, Reliable)
+	void ServerShotGunFire(const TArray<FVector_NetQuantize>& TraceHitTargets);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastShotGunFire(const TArray<FVector_NetQuantize>& TraceHitTargets);
 
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
 
@@ -208,9 +212,7 @@ private:
 	int32 MaxGrenades = 4;
 
 	void UpdateHUDGrenade();
-public:	
+public:
 	FORCEINLINE int32 GetGrenade() const { return Grenades; }
 	FORCEINLINE bool ShouldSwapWeapons() const { return EquippedWeapon != nullptr && SecondaryWeapon != nullptr; }
-		
-	
 };

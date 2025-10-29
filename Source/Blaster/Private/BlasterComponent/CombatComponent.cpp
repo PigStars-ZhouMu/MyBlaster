@@ -102,11 +102,18 @@ void UCombatComponent::Fire() {
 		//ServerFire(HitTarget);
 		FHitResult HitResult;
 		TraceUnderCrosshairs(HitResult);
-
-		// crosshair
 		if (EquippedWeapon) {
+			// crosshair
 			CrosshairShootingFactor = 1.f;
+
 			switch (EquippedWeapon->FireType) {
+			case EFireType::EFT_Projectile:
+				FireProjectileWeapon(HitResult);
+				break;
+			case EFireType::EFT_HitScan:
+				FireHitScanWeapon(HitResult);
+				break;
+
 			default:
 				break;
 			}
@@ -121,6 +128,7 @@ void UCombatComponent::FireProjectileWeapon(FHitResult& HitResult) {
 }
 
 void UCombatComponent::FireHitScanWeapon(FHitResult& HitResult) {
+
 }
 
 void UCombatComponent::FireShotGun(FHitResult& HitResult) {

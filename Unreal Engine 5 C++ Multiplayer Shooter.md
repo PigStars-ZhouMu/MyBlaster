@@ -1657,3 +1657,14 @@ void UCombatComponent::OnRep_CarriedAmmo()
     }
 }
 ```
+
+### 拾取
+
+#### Healing the Character
+
+##### SpeedBuff的流程（多人游戏）
+
+
+
+
+ABlasterCharacter::PostInitializeComponents() \\\ ???

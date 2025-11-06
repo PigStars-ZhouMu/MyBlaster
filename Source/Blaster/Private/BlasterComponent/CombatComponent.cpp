@@ -276,7 +276,7 @@ void UCombatComponent::PlayEquipWeaponSound(AWeapon* WeaponToEquip) {
 }
 
 void UCombatComponent::ReloadEmptyWeapon() {
-	if (EquippedWeapon->IsEmpty()) {
+	if (EquippedWeapon && EquippedWeapon->IsEmpty()) {
 		Reload();
 	}
 }
@@ -374,7 +374,7 @@ void UCombatComponent::UpdateAmmoValues() {
 	if (Controller) {
 		Controller->SetHUDCarriedAmmo(CarriedAmmo);
 	}
-	EquippedWeapon->AddAmmo(-ReloadAmount);
+	EquippedWeapon->AddAmmo(ReloadAmount);
 }
 
 void UCombatComponent::UpdateShotGunAmmoValues() {
@@ -390,7 +390,7 @@ void UCombatComponent::UpdateShotGunAmmoValues() {
 	if (Controller) {
 		Controller->SetHUDCarriedAmmo(CarriedAmmo);
 	}
-	EquippedWeapon->AddAmmo((RoomInMag == 0) ? 0 : -1);
+	EquippedWeapon->AddAmmo((RoomInMag == 0) ? 0 : 1);
 
 	bCanFire = true; // ???
 

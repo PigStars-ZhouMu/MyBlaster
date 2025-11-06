@@ -85,10 +85,12 @@ void AWeapon::Fire(const FVector& HitTarget) {
 			}
 		}
 	}
-	if (HasAuthority()) {
-		// Ammo
-		SpendRound();
-	}
+	//if (HasAuthority()) {
+	//	// Ammo
+	//	SpendRound();
+	//}
+	// we want to predict ammo on all machine, so we just call spendround() function here.
+	SpendRound();
 }
 
 void AWeapon::OnSphereOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepReult) {
@@ -117,19 +119,47 @@ void AWeapon::SetHUDAmmo() {
 }
 
 void AWeapon::SpendRound() {
+	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
+	SetHUDAmmo();
 	if (HasAuthority()) {
-		Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
-		SetHUDAmmo();
+		ClientAddAmmo(Ammo);
+	}
+	else {
+		Sequence++;
 	}
 }
 
-void AWeapon::OnRep_Ammo() {
+void AWeapon::ClientUpdateAmmo_Implementation(int32 ServerAmmo) {
+	if (HasAuthority()) return;
+	Ammo = ServerAmmo;
+	Sequence--; 
+	Ammo -= Sequence;
+	SetHUDAmmo();
+}
+
+void AWeapon::AddAmmo(int32 AmmoToAdd) {
+	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
+	SetHUDAmmo();
+	ClientAddAmmo(AmmoToAdd);
+}
+
+void AWeapon::ClientAddAmmo_Implementation(int32 AmmoToAdd) {
+	if (HasAuthority()) return;
+	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0, MagCapacity);
 	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(GetOwner()) : BlasterOwnerCharacter;
 	if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetCombat() && IsFull() && WeaponType == EWeaponType::EWT_ShotGun) {
 		BlasterOwnerCharacter->GetCombat()->JumpToShutGunEnd();
 	}
 	SetHUDAmmo();
 }
+
+//void AWeapon::OnRep_Ammo() {
+//	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(GetOwner()) : BlasterOwnerCharacter;
+//	if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetCombat() && IsFull() && WeaponType == EWeaponType::EWT_ShotGun) {
+//		BlasterOwnerCharacter->GetCombat()->JumpToShutGunEnd();
+//	}
+//	SetHUDAmmo();
+//}
 
 void AWeapon::OnRep_Owner() {
 	Super::OnRep_Owner();
@@ -215,7 +245,7 @@ void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeP
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AWeapon, WeaponState);
-	DOREPLIFETIME(AWeapon, Ammo);
+	//DOREPLIFETIME(AWeapon, Ammo);
 }
 
 void AWeapon::Dropped() {
@@ -227,11 +257,6 @@ void AWeapon::Dropped() {
 	SetOwner(nullptr);
 	BlasterOwnerCharacter = nullptr;
 	BlasterOwnerController = nullptr;
-}
-
-void AWeapon::AddAmmo(int32 AmmoToAdd) {
-	Ammo = FMath::Clamp(Ammo - AmmoToAdd, 0, MagCapacity);
-	SetHUDAmmo();
 }
 
 FVector AWeapon::TraceEndWithScatter(const FVector& HitTarget) {

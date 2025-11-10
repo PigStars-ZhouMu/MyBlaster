@@ -764,6 +764,11 @@ ECombatState ABlasterCharacter::GetCombatState() const {
 	return Combat->CombatState;
 }
 
+bool ABlasterCharacter::IsLocallyReloading() const {
+	if (Combat == nullptr) return false;
+	return Combat->bLocallyReloading;
+}
+
 
 
 

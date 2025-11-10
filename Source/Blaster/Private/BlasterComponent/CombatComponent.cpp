@@ -653,6 +653,12 @@ void UCombatComponent::InterpFOV(float Deltatime) {
 	}
 }
 
+void UCombatComponent::OnRep_Aiming() {
+	if (Character && Character->IsLocallyControlled()) {
+		bAiming = bAimButtonPressed; // 确保本地优先于服务器
+	}
+}
+
 void UCombatComponent::SetAiming(bool bIsAiming) {
 	if (Character == nullptr || EquippedWeapon == nullptr) return;
 	bAiming = bIsAiming;
@@ -664,10 +670,11 @@ void UCombatComponent::SetAiming(bool bIsAiming) {
 	if (Character->IsLocallyControlled() && EquippedWeapon->GetWeaponType() == EWeaponType::EWT_SniperRifle) {
 		Character->ShowSniperScopeWidge(bIsAiming);
 	}
+
+	if (Character->IsLocallyControlled()) bAimButtonPressed = bIsAiming;
 }
 
 void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming) {
-	// error but it just run.
 	bAiming = bIsAiming;
 	if (Character) {
 		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;

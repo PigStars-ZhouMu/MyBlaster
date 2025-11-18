@@ -45,7 +45,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	void SaveFramePackage(FFramePackage& Package);
-
+	FFramePackage InterpBetweenFrame(const FFramePackage& OlderFrame, const FFramePackage& YoungerFrame, float HitTime);
 private:
 	UPROPERTY()
 	ABlasterCharacter* Character;

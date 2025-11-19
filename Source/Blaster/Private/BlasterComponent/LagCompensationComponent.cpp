@@ -230,13 +230,13 @@ void ULagCompensationComponent::ServerScoreRequest_Implementation(ABlasterCharac
 
 void ULagCompensationComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	if (Character == nullptr || !Character->HasAuthority()) return;
 
 	SaveFramePackage();
-
 }
 
 void ULagCompensationComponent::SaveFramePackage() {
+	if (Character == nullptr || !Character->HasAuthority()) return;
+
 	if (FrameHistory.Num() <= 1) {
 		FFramePackage ThisFrame;
 		SaveFramePackage(ThisFrame);

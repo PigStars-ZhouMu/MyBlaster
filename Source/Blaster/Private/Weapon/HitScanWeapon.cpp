@@ -8,6 +8,9 @@
 #include "Sound/SoundCue.h"
 #include "DrawDebugHelpers.h"
 #include "Weapon/WeaponType.h"
+#include "Blaster/Public/BlasterComponent/LagCompensationComponent.h"
+#include "Blaster/Public/Character/BlasterCharacter.h"
+#include "Blaster/Public/PlayerController/BlasterPlayerController.h"
 
 void AHitScanWeapon::Fire(const FVector& HitTarget) {
 	Super::Fire(HitTarget);
@@ -23,15 +26,30 @@ void AHitScanWeapon::Fire(const FVector& HitTarget) {
 		FHitResult FireHit;
 		WeaponTraceHit(Start, HitTarget, FireHit);
 
-		ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(FireHit.GetActor());
-		if (BlasterCharacter && HasAuthority() && InstigatorController) {
-			UGameplayStatics::ApplyDamage(
-				BlasterCharacter,
-				Damage,
-				InstigatorController,
-				this,
-				UDamageType::StaticClass()
-			);
+		ABlasterCharacter* HitCharacter = Cast<ABlasterCharacter>(FireHit.GetActor());
+		if (HitCharacter && InstigatorController) {
+			if (HasAuthority() && !bUseServerSideRewind) {
+				UGameplayStatics::ApplyDamage(
+					HitCharacter,
+					Damage,
+					InstigatorController,
+					this,
+					UDamageType::StaticClass()
+				);
+			}
+			if (!HasAuthority() && bUseServerSideRewind) {
+				BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(OwnerPawn) : BlasterOwnerCharacter;
+				BlasterOwnerController = BlasterOwnerController == nullptr ? Cast<ABlasterPlayerController>(InstigatorController) : BlasterOwnerController;
+				if (BlasterOwnerCharacter && BlasterOwnerController && BlasterOwnerCharacter->GetLagCompensation()) {
+					BlasterOwnerCharacter->GetLagCompensation()->ServerScoreRequest(
+						HitCharacter,
+						Start,
+						HitTarget,
+						BlasterOwnerController->GetServerTime() - BlasterOwnerController->SingleTripTime,
+						this
+					);
+				}
+			}
 		}
 
 		if (ImpactParticles) {

@@ -134,6 +134,14 @@ protected:
 	UPROPERTY(EditAnywhere)
 	float Damage = 20.f;
 
+	UPROPERTY(EditAnywhere)
+	bool bUseServerSideRewind = false;
+
+	UPROPERTY()
+	class ABlasterCharacter* BlasterOwnerCharacter;
+	UPROPERTY()
+	class ABlasterPlayerController* BlasterOwnerController;
+
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Weapon Properties");
 	USkeletalMeshComponent* WeaponMesh;
@@ -177,11 +185,6 @@ private:
 	// the number of unprocessed server requests for ammo.
 	// incremented in sependround, decremented in clientupdateammo.
 	int32 Sequence = 0;
-
-	UPROPERTY()
-	class ABlasterCharacter* BlasterOwnerCharacter;
-	UPROPERTY()
-	class ABlasterPlayerController* BlasterOwnerController;
 
 	UPROPERTY(EditAnywhere)
 	EWeaponType WeaponType;

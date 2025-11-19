@@ -74,11 +74,27 @@ public:
 		const FVector_NetQuantize& HitLocation, 
 		float HitTime);
 
+	FShotgunServerSideRewindResult ShotgunServerSideRewind(
+		const TArray<ABlasterCharacter*>& HitCharacters,
+		const FVector_NetQuantize& TraceStart,
+		const TArray<FVector_NetQuantize>& HitLocations,
+		float HitTime
+	);
+
 	UFUNCTION(Server, Reliable)
 	void ServerScoreRequest(
 		ABlasterCharacter* HitCharacter,
 		const FVector_NetQuantize& TraceStart,
 		const FVector_NetQuantize& HitLocation,
+		float HitTime,
+		class AWeapon* DamageCauser
+	);
+
+	UFUNCTION(Server, Reliable)
+	void ShotgunServerScoreRequest(
+		const TArray<ABlasterCharacter*>& HitCharacters,
+		const FVector_NetQuantize& TraceStart,
+		const TArray<FVector_NetQuantize>& HitLocations,
 		float HitTime,
 		class AWeapon* DamageCauser
 	);
@@ -104,12 +120,6 @@ protected:
 	/*
 	* shotgun
 	*/
-	FShotgunServerSideRewindResult ShotgunServerSideRewind(
-		const TArray<ABlasterCharacter*>& HitCharacters, 
-		const FVector_NetQuantize& TraceStart, 
-		const TArray<FVector_NetQuantize>& HitLocations, 
-		float HitTime
-	);
 
 	FShotgunServerSideRewindResult ShotgunConfirmHit(
 		const TArray<FFramePackage>& FramePackages,

@@ -319,8 +319,25 @@ void ULagCompensationComponent::ServerScoreRequest_Implementation(ABlasterCharac
 	}
 }
 
-void ULagCompensationComponent::ShotgunServerScoreRequest(const TArray<ABlasterCharacter*>& HitCharacters, const FVector_NetQuantize& TraceStart, const TArray<FVector_NetQuantize>& HitLocations, float HitTime, AWeapon* DamageCauser) {
-
+void ULagCompensationComponent::ShotgunServerScoreRequest_Implementation(const TArray<ABlasterCharacter*>& HitCharacters, const FVector_NetQuantize& TraceStart, const TArray<FVector_NetQuantize>& HitLocations, float HitTime, AWeapon* DamageCauser) {
+	FShotgunServerSideRewindResult Confirm = ShotgunServerSideRewind(HitCharacters, TraceStart, HitLocations, HitTime);
+	for (auto& HitCharacter : HitCharacters) {
+		if (Character && HitCharacter && DamageCauser) continue;
+		float TotalDamage = 0.f;
+		if (Confirm.HeadShots.Contains(HitCharacter)) {
+			TotalDamage += Confirm.HeadShots[HitCharacter] * DamageCauser->GetDamage();
+		}
+		if (Confirm.BodyShots.Contains(HitCharacter)) {
+			TotalDamage += Confirm.BodyShots[HitCharacter] * DamageCauser->GetDamage();
+		}
+		UGameplayStatics::ApplyDamage(
+			HitCharacter,
+			TotalDamage ,
+			Character->Controller,
+			DamageCauser,
+			UDamageType::StaticClass()
+		);
+	}
 
 }
 

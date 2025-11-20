@@ -302,6 +302,8 @@ FFramePackage ULagCompensationComponent::GetFrameToCheck(ABlasterCharacter* HitC
 	if (bShouldInterplate) {
 		FrameToCheck = InterpBetweenFrame(Older->GetValue(), Younger->GetValue(), HitTime);
 	}
+
+	FrameToCheck.Character = HitCharacter;
 	return FrameToCheck;
 }
 

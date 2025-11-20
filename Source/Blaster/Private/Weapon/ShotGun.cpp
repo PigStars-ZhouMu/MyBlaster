@@ -7,6 +7,8 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Sound/SoundCue.h"
+#include "Blaster/Public/BlasterComponent/LagCompensationComponent.h"
+#include "Blaster/Public/PlayerController/BlasterPlayerController.h"
 
 //void AShotGun::Fire(const FVector& HitTarget) {
 //	AWeapon::Fire(HitTarget);
@@ -81,13 +83,13 @@ void AShotGun::FireShotGun(const TArray<FVector_NetQuantize>& HitTargets) {
 		for (auto HitTarget : HitTargets) {
 			FHitResult FireHit;
 			WeaponTraceHit(Start, HitTarget, FireHit);
-			ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(FireHit.GetActor());
-			if (BlasterCharacter) { // because we call is both on server and client, so not need hasAuthority() function.
-				if (HitMap.Contains(BlasterCharacter)) {
-					HitMap[BlasterCharacter]++;
+			ABlasterCharacter* HitCharacter = Cast<ABlasterCharacter>(FireHit.GetActor());
+			if (HitCharacter) { // because we call is both on server and client, so not need hasAuthority() function.
+				if (HitMap.Contains(HitCharacter)) {
+					HitMap[HitCharacter]++;
 				}
 				else {
-					HitMap.Emplace(BlasterCharacter, 1);
+					HitMap.Emplace(HitCharacter, 1);
 				}
 			}
 			if (ImpactParticles) {
@@ -108,14 +110,37 @@ void AShotGun::FireShotGun(const TArray<FVector_NetQuantize>& HitTargets) {
 				);
 			}
 		}
+
+		TArray<ABlasterCharacter*> HitCharacters;
+
 		for (auto HitPair : HitMap) {
-			if (HitPair.Key && HasAuthority() && InstigatorController) {
-				UGameplayStatics::ApplyDamage(
-					HitPair.Key, // character that was hit
-					Damage * HitPair.Value, // times * damage = total damage
-					InstigatorController,
-					this,
-					UDamageType::StaticClass()
+			if (HitPair.Key && InstigatorController) {
+				if (HasAuthority() || !bUseServerSideRewind) {
+					UGameplayStatics::ApplyDamage(
+						HitPair.Key, // character that was hit
+						Damage * HitPair.Value, // times * damage = total damage
+						InstigatorController,
+						this,
+						UDamageType::StaticClass()
+					);
+				}
+			}
+			HitCharacters.Add(HitPair.Key);
+		}
+		if (!HasAuthority() || bUseServerSideRewind) {
+			BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(OwnerPawn) : BlasterOwnerCharacter;
+			BlasterOwnerController = BlasterOwnerController == nullptr ? Cast<ABlasterPlayerController>(InstigatorController) : BlasterOwnerController;
+			if (BlasterOwnerCharacter && 
+				BlasterOwnerController && 
+				BlasterOwnerCharacter->GetLagCompensation() && 
+				BlasterOwnerCharacter->IsLocallyControlled()) {
+
+				BlasterOwnerCharacter->GetLagCompensation()->ShotgunServerScoreRequest(
+					HitCharacters,
+					Start,
+					HitTargets,
+					BlasterOwnerController->GetServerTime() - BlasterOwnerController->SingleTripTime,
+					this
 				);
 			}
 		}

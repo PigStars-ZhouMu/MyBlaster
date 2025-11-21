@@ -9,9 +9,17 @@ AProjectileBullet::AProjectileBullet() {
 	ProjectileMovementComponent = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovementComponent"));
 	ProjectileMovementComponent->bRotationFollowsVelocity = true;
 	ProjectileMovementComponent->SetIsReplicated(true);
-	ProjectileMovementComponent->InitialSpeed = 3500.f;
-	ProjectileMovementComponent->MaxSpeed = 3500.f;
+	ProjectileMovementComponent->InitialSpeed = InitialSpeed;
+	ProjectileMovementComponent->MaxSpeed = InitialSpeed;
 }
+
+#if WITH_EDITOR
+void AProjectileBullet::PostEditChangeProperty(FPropertyChangedEvent& Event) {
+	Super::PostEditChangeProperty(Event);
+	FName PropertyName = Event.Property != nullptr ? FName(Event.Property->GetName()) : NAME_None;
+
+}
+#endif
 
 void AProjectileBullet::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector Normalimpulse, const FHitResult& Hit) {
 	ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner());
@@ -33,7 +41,7 @@ void AProjectileBullet::BeginPlay() {
 	PathParams.bTraceWithCollision = true;
 	PathParams.DrawDebugTime = 5.f;
 	PathParams.DrawDebugType = EDrawDebugTrace::ForDuration;
-	PathParams.LaunchVelocity = GetActorForwardVector() * 3500.f;
+	PathParams.LaunchVelocity = GetActorForwardVector() * InitialSpeed;
 	PathParams.MaxSimTime = 4.f;
 	PathParams.ProjectileRadius = 5.f;
 	PathParams.SimFrequency = 30.f;

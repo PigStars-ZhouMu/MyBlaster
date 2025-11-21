@@ -66,7 +66,7 @@ ABlasterCharacter::ABlasterCharacter() {
 	Buff = CreateDefaultSubobject<UBuffComponent>(TEXT("BuffComponent"));
 	Buff->SetIsReplicated(true);
 
-	LagCompensation = CreateDefaultSubobject<ULagCompensationCompnent>(TEXT("LagCompensation"));
+	LagCompensation = CreateDefaultSubobject<ULagCompensationComponent>(TEXT("LagCompensation"));
 
 
 	GetMovementComponent()->NavAgentProps.bCanCrouch = true;

@@ -7,6 +7,20 @@
 #include "LagCompensationComponent.generated.h"
 
 USTRUCT(BlueprintType)
+struct FBoxInformation {
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FVector Location;
+
+	UPROPERTY()
+	FRotator Rotation;
+
+	UPROPERTY()
+	FVector BoxExtent;
+};
+
+USTRUCT(BlueprintType)
 struct FFramePackage {
 	GENERATED_BODY()
 
@@ -21,25 +35,11 @@ struct FFramePackage {
 };
 
 USTRUCT(BlueprintType)
-struct FBoxInformation {
-	GENERATED_BODY()
-
-	UPROPERTY()
-	FVector Location;
-
-	UPROPERTY()
-	FRotator Ratation;
-
-	UPROPERTY()
-	FVector BoxExtent;
-};
-
-USTRUCT(BlueprintType)
 struct FServerSideRewindResult {
 	GENERATED_BODY()
 
 	UPROPERTY()
-	bool bHitComfirmed;
+	bool bHitConfirmed;
 
 	UPROPERTY()
 	bool bHeadShot;
@@ -120,7 +120,6 @@ protected:
 	/*
 	* shotgun
 	*/
-
 	FShotgunServerSideRewindResult ShotgunConfirmHit(
 		const TArray<FFramePackage>& FramePackages,
 		const FVector_NetQuantize& TraceStart,

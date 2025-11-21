@@ -29,7 +29,7 @@ void ULagCompensationComponent::ShowFramePackage(const FFramePackage& Package, F
 			GetWorld(),
 			BoxInfo.Value.Location,
 			BoxInfo.Value.BoxExtent,
-			FQuat(BoxInfo.Value.Ratation),
+			FQuat(BoxInfo.Value.Rotation),
 			Color,
 			true
 		);
@@ -52,7 +52,7 @@ FFramePackage ULagCompensationComponent::InterpBetweenFrame(const FFramePackage&
 
 		FBoxInformation InterpBoxInfo;
 		InterpBoxInfo.Location = FMath::VInterpTo(OlderBox.Location, YoungerBox.Location, 1.f, InterpFraction);
-		InterpBoxInfo.Ratation = FMath::RInterpTo(OlderBox.Ratation, YoungerBox.Ratation, 1.f, InterpFraction);
+		InterpBoxInfo.Rotation = FMath::RInterpTo(OlderBox.Rotation, YoungerBox.Rotation, 1.f, InterpFraction);
 		InterpBoxInfo.BoxExtent = YoungerBox.BoxExtent;
 
 		InterpFramePackage.HitBoxInfo.Add(BoxInfoName, InterpBoxInfo);
@@ -212,7 +212,7 @@ void ULagCompensationComponent::CacheBoxPositions(ABlasterCharacter* HitCharacte
 		if (HitBoxPair.Value != nullptr) {
 			FBoxInformation BoxInfo;
 			BoxInfo.Location = HitBoxPair.Value->GetComponentLocation();
-			BoxInfo.Ratation = HitBoxPair.Value->GetComponentRotation();
+			BoxInfo.Rotation = HitBoxPair.Value->GetComponentRotation();
 			BoxInfo.BoxExtent = HitBoxPair.Value->GetScaledBoxExtent(); 
 			OutFramePackage.HitBoxInfo.Add(HitBoxPair.Key, BoxInfo);
 		}
@@ -224,7 +224,7 @@ void ULagCompensationComponent::MoveBoxes(ABlasterCharacter* HitCharacter, const
 	for (auto& HitBoxPair : HitCharacter->HitCollisionBox) {
 		if (HitBoxPair.Value != nullptr) {
 			HitBoxPair.Value->SetWorldLocation(Package.HitBoxInfo[HitBoxPair.Key].Location);
-			HitBoxPair.Value->SetWorldRotation(Package.HitBoxInfo[HitBoxPair.Key].Ratation);
+			HitBoxPair.Value->SetWorldRotation(Package.HitBoxInfo[HitBoxPair.Key].Rotation);
 			HitBoxPair.Value->SetBoxExtent(Package.HitBoxInfo[HitBoxPair.Key].BoxExtent);
 		}
 	}
@@ -235,7 +235,7 @@ void ULagCompensationComponent::ResetHitBoxes(ABlasterCharacter* HitCharacter, c
 	for (auto& HitBoxPair : HitCharacter->HitCollisionBox) {
 		if (HitBoxPair.Value != nullptr) {
 			HitBoxPair.Value->SetWorldLocation(Package.HitBoxInfo[HitBoxPair.Key].Location);
-			HitBoxPair.Value->SetWorldRotation(Package.HitBoxInfo[HitBoxPair.Key].Ratation);
+			HitBoxPair.Value->SetWorldRotation(Package.HitBoxInfo[HitBoxPair.Key].Rotation);
 			HitBoxPair.Value->SetBoxExtent(Package.HitBoxInfo[HitBoxPair.Key].BoxExtent);
 			HitBoxPair.Value->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		}
@@ -310,7 +310,7 @@ FFramePackage ULagCompensationComponent::GetFrameToCheck(ABlasterCharacter* HitC
 void ULagCompensationComponent::ServerScoreRequest_Implementation(ABlasterCharacter* HitCharacter, const FVector_NetQuantize& TraceStart, const FVector_NetQuantize& HitLocation, float HitTime, AWeapon* DamageCauser) {
 	FServerSideRewindResult Confirm = ServerSideRewind(HitCharacter, TraceStart, HitLocation, HitTime);
 
-	if (Character && HitCharacter && DamageCauser && Confirm.bHitComfirmed) {
+	if (Character && HitCharacter && DamageCauser && Confirm.bHitConfirmed) {
 		UGameplayStatics::ApplyDamage(
 			HitCharacter,
 			DamageCauser->GetDamage(),
@@ -379,7 +379,7 @@ void ULagCompensationComponent::SaveFramePackage(FFramePackage& Package) {
 		for (auto& BoxPair : Character->HitCollisionBox) {
 			FBoxInformation BoxInformation;
 			BoxInformation.Location = BoxPair.Value->GetComponentLocation();
-			BoxInformation.Ratation = BoxPair.Value->GetComponentRotation();
+			BoxInformation.Rotation = BoxPair.Value->GetComponentRotation();
 			BoxInformation.BoxExtent = BoxPair.Value->GetScaledBoxExtent();
 			Package.HitBoxInfo.Add(BoxPair.Key, BoxInformation);
 		}

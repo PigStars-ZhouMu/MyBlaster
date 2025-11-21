@@ -19,7 +19,7 @@ public:
 	virtual void Destroyed() override;
 	
 #if WITH_EDITOR
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& Event) override;
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& Event) override;
 #endif
 
 protected:

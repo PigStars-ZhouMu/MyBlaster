@@ -2,7 +2,9 @@
 
 #include "Weapon/ProjectileBullet.h"
 #include "Kismet/GameplayStatics.h"
-#include "GameFramework/Character.h"
+#include "Blaster/Public/Character/BlasterCharacter.h"
+#include "Blaster/Public/PlayerController/BlasterPlayerController.h"
+#include "Blaster/Public/BlasterComponent/LagCompensationComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 
 AProjectileBullet::AProjectileBullet() {
@@ -22,14 +24,32 @@ void AProjectileBullet::PostEditChangeProperty(FPropertyChangedEvent& Event) {
 #endif
 
 void AProjectileBullet::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector Normalimpulse, const FHitResult& Hit) {
-	ACharacter* OwnerCharacter = Cast<ACharacter>(GetOwner());
+	ABlasterCharacter* OwnerCharacter = Cast<ABlasterCharacter>(GetOwner());
 	if (OwnerCharacter) {
-		AController* OwnerController = OwnerCharacter->Controller;
+		ABlasterPlayerController* OwnerController = Cast<ABlasterPlayerController>(OwnerCharacter->Controller);
+
 		if (OwnerController) {
+			if (OwnerCharacter->HasAuthority() && !bUsedServerSideRewind) { // server, no SSR
+				UGameplayStatics::ApplyDamage(OtherActor, Damage, OwnerController, this, UDamageType::StaticClass());
+				Super::OnHit(HitComp, OtherActor, OtherComp, Normalimpulse, Hit);
+				return;
+			}
+
+			ABlasterCharacter* HitCharacter = Cast<ABlasterCharacter>(OtherActor);
+			if (bUsedServerSideRewind && OwnerCharacter->GetLagCompensation() && OwnerCharacter->IsLocallyControlled() && HitCharacter) {
+				OwnerCharacter->GetLagCompensation()->ProjectileServerScoreRequest(
+					HitCharacter,
+					TraceStart, // we set it when we spawn the projectile in ProjectileWeapon.cpp
+					InitialVelocity,
+					OwnerController->GetServerTime() - OwnerController->SingleTripTime,
+					OwnerCharacter->GetEquippedWeapon()
+				);
+			}
+
+
 			UGameplayStatics::ApplyDamage(OtherActor, Damage, OwnerController, this, UDamageType::StaticClass());
 		}
 	}
-
 	Super::OnHit(HitComp, OtherActor, OtherComp, Normalimpulse, Hit);
 }
 

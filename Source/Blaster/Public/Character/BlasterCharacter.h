@@ -56,7 +56,7 @@ public:
 	void SpawnDefaultWeapon();
 
 	UPROPERTY()
-	TMap<FName, UBoxComponent*> HitCollisionBox;
+	TMap<FName, class UBoxComponent*> HitCollisionBoxes;
 
 protected:
 	// Called when the game starts or when spawned

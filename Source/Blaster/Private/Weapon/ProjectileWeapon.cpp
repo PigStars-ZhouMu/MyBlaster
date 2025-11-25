@@ -32,7 +32,8 @@ void AProjectileWeapon::Fire(const FVector& HitTarget) {
 				}
 				else { // server, not locally controlled - spawn  non-replicated projetile, no SSR
 					SpawnedProjectile = World->SpawnActor<AProjectile>(ServerSideRewindProjectileClass, SocketTransform.GetLocation(), TargetRotation, SpawParameters);
-					SpawnedProjectile->bUsedServerSideRewind = false;
+					SpawnedProjectile->bUsedServerSideRewind = true;
+					SpawnedProjectile->Damage = Damage;
 				}
 			}
 			else { // client, using SSR
@@ -46,6 +47,7 @@ void AProjectileWeapon::Fire(const FVector& HitTarget) {
 				else { // client, not locally controlled - spawn non-replicated projectile, no SSR
 					SpawnedProjectile = World->SpawnActor<AProjectile>(ServerSideRewindProjectileClass, SocketTransform.GetLocation(), TargetRotation, SpawParameters);
 					SpawnedProjectile->bUsedServerSideRewind = false;
+					SpawnedProjectile->Damage = Damage;
 				}
 			}
 		}

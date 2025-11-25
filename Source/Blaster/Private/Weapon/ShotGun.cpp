@@ -115,7 +115,10 @@ void AShotGun::FireShotGun(const TArray<FVector_NetQuantize>& HitTargets) {
 
 		for (auto HitPair : HitMap) {
 			if (HitPair.Key && InstigatorController) {
-				if (HasAuthority() || !bUseServerSideRewind) {
+
+				bool bCauseAuthDamage = !bUseServerSideRewind || OwnerPawn->IsLocallyControlled();
+
+				if (HasAuthority() || bCauseAuthDamage) {
 					UGameplayStatics::ApplyDamage(
 						HitPair.Key, // character that was hit
 						Damage * HitPair.Value, // times * damage = total damage

@@ -36,6 +36,7 @@ void AProjectileBullet::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, 
 			}
 
 			ABlasterCharacter* HitCharacter = Cast<ABlasterCharacter>(OtherActor);
+			
 			if (bUsedServerSideRewind && OwnerCharacter->GetLagCompensation() && OwnerCharacter->IsLocallyControlled() && HitCharacter) {
 				OwnerCharacter->GetLagCompensation()->ProjectileServerScoreRequest(
 					HitCharacter,
@@ -45,9 +46,7 @@ void AProjectileBullet::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, 
 					OwnerCharacter->GetEquippedWeapon()
 				);
 			}
-
-
-			UGameplayStatics::ApplyDamage(OtherActor, Damage, OwnerController, this, UDamageType::StaticClass());
+			// UGameplayStatics::ApplyDamage(OtherActor, Damage, OwnerController, this, UDamageType::StaticClass());
 		}
 	}
 	Super::OnHit(HitComp, OtherActor, OtherComp, Normalimpulse, Hit);

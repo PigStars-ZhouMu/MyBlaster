@@ -19,7 +19,7 @@ https://blog.csdn.net/m0_73800387/article/details/145742459
    ```c++
    // virtual void OnLevelRemovedFromWorld(ULevel* InLevel, UWorld* InWorld);
    virtual void NativeDestruct() override;
-
+   
    /*void UMenu::OnLevelRemovedFromWorld(ULevel* InLevel, UWorld* InWorld)
    {
        MenuTearDown();
@@ -576,7 +576,7 @@ UE默认的同步机制是基于**状态同步**（同步对象属性变化）�
   void SendPlayerInput(int32 Frame, FInputData Input) {
       Server_ReportInput(Frame, Input);
   }
-
+  
   // 服务器广播确认的输入到所有客户端
   void Server_ReportInput_Implementation(int32 Frame, FInputData Input) {
       BroadcastInputToClients(Frame, Input);
@@ -667,7 +667,7 @@ UE默认的同步机制是基于**状态同步**（同步对象属性变化）�
        // 客户端预测移动
        AddMovementInput(FVector::ForwardVector, Value);
    }
-
+   
    UFUNCTION(Server, Reliable, WithValidation)
    void Server_MoveForward(float Value);
    ```
@@ -2057,3 +2057,388 @@ void UCombatComponent::OnRep_CombatState()
 ```
 
 也就是说，此处只是保证了Reload动画结束之后玩家可以立刻fire。
+
+### Server-side Rewind
+
+#### 结构体与类型
+
+```c++
+// 保存命中盒（HitBox）的位置信息：Location、Rotation、BoxExtent（缩放后的盒子尺寸）。
+USTRUCT(BlueprintType)
+struct FBoxInformation {
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FVector Location;
+	UPROPERTY()
+	FRotator Rotation;
+	UPROPERTY()
+	FVector BoxExtent;
+};
+
+// 一帧回放数据：Time（保存时间戳）、HitBoxInfo（各命中盒的快照）、Character（对应角色指针）。
+USTRUCT(BlueprintType)
+struct FFramePackage {
+	GENERATED_BODY()
+
+	UPROPERTY()
+	float Time;
+	UPROPERTY()
+	TMap<FName, FBoxInformation> HitBoxInfo;
+	UPROPERTY()
+	ABlasterCharacter* Character;
+};
+
+// 单发命中回溯结果：bHitConfirmed（是否命中）、bHeadShot（是否为爆头）。
+USTRUCT(BlueprintType)
+struct FServerSideRewindResult {
+	GENERATED_BODY()
+
+	UPROPERTY()
+	bool bHitConfirmed;
+	UPROPERTY()
+	bool bHeadShot;
+};
+
+// 散弹命中回溯结果：HeadShots/BodyShots（每个角色对应爆头/身体命中的弹丸计数）。
+USTRUCT(BlueprintType)
+struct FShotgunServerSideRewindResult {
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TMap<ABlasterCharacter*, uint32> HeadShots;
+	UPROPERTY()
+	TMap<ABlasterCharacter*, uint32> BodyShots;
+
+};
+```
+
+#### HitScan Weapon Server-side Rewind
+
+##### 客户端开火阶段
+
+1. **`AHitScanWeapon::Fire(const FVector& HitTarget)`**
+
+```c++
+void AHitScanWeapon::Fire(const FVector& HitTarget) {
+	
+  /*
+	* ......
+	*/
+  
+		if (HitCharacter && InstigatorController) {
+			if (HasAuthority() && !bUseServerSideRewind) {
+				UGameplayStatics::ApplyDamage(
+					HitCharacter,
+					Damage,
+					InstigatorController,
+					this,
+					UDamageType::StaticClass()
+				);
+			}
+			if (!HasAuthority() && bUseServerSideRewind) {
+				BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(OwnerPawn) : BlasterOwnerCharacter;
+				BlasterOwnerController = BlasterOwnerController == nullptr ? Cast<ABlasterPlayerController>(InstigatorController) : BlasterOwnerController;
+				if (BlasterOwnerCharacter && 
+					BlasterOwnerController && 
+					BlasterOwnerCharacter->GetLagCompensation() &&
+					BlasterOwnerCharacter->IsLocallyControlled()) {
+					BlasterOwnerCharacter->GetLagCompensation()->ServerScoreRequest(
+						HitCharacter,
+						Start,
+						HitTarget,
+						BlasterOwnerController->GetServerTime() - BlasterOwnerController->SingleTripTime,
+						this
+					);
+				}
+			}
+		}
+
+		if (ImpactParticles) {
+			UGameplayStatics::SpawnEmitterAtLocation(
+				GetWorld(),
+				ImpactParticles,
+				FireHit.ImpactPoint,
+				FireHit.ImpactNormal.Rotation()
+			);
+		}
+		if (HitSound) {
+			UGameplayStatics::PlaySoundAtLocation(
+				this,
+				HitSound,
+				FireHit.ImpactPoint
+			);
+		}
+		if (MuzzleFlash) {
+			UGameplayStatics::SpawnEmitterAtLocation(
+				GetWorld(),
+				MuzzleFlash,
+				SocketTransform
+			);
+		}
+		if (FireSound) {
+			UGameplayStatics::PlaySoundAtLocation(
+				this,
+				FireSound,
+				GetActorLocation()
+			);
+		}
+	}
+}
+```
+
+此处重要的逻辑在“if (HitCharacter && InstigatorController) ”内，其内部逻辑如下：
+
+> - 如果 HasAuthority() （是服务器）且未使用 SSR：直接服务器本地 ApplyDamage
+>
+> - 如果在客户端且使用 SSR：
+>
+>   - 取本地角色与控制器（BlasterOwnerCharacter / BlasterOwnerController）
+>
+>   - 计算射击的服务器时间点：
+>
+>     - HitTime = BlasterOwnerController->GetServerTime() - BlasterOwnerController->SingleTripTime
+>
+>     - SingleTripTime：单程延迟，用于估计射击时刻的服务器时间
+>
+>   - 调用 BlasterOwnerCharacter->GetLagCompensation()->ServerScoreRequest(HitCharacter, Start, HitTarget, HitTime, this)
+
+简单的来说，只有在即使用SSR也在客户端并且为locallycontrolled的情况下才使用SSR，也就是对应的BlasterOwnerCharacter->GetLagCompensation()->**ServerScoreRequest()**，在介绍这个函数之前，先解决一个问题：
+
+**为什么此处的HitTime是BlasterOwnerController->GetServerTime() - BlasterOwnerController->SingleTripTime？**
+
+为了搞懂这个问题，首先看GetServerTime和SingleTripTime分别代表着什么？首先是，GetServerTime返回的数值，这个数值在ABlasterPlayerController.cpp中被计算，对于客户端来说，GetServerTime返回的是“本地时间+之前对齐出的服务器-本地偏移”，这个偏移是通过次一次带时间戳的RPC往返用RTT/2推算出来的。而SingleTripTime，指的就是RTT/2，也就是单程延迟。
+
+此处的HitTime之所以需要减去单程时延，是因为客户端把请求发出去要花一段在路上的时间，等服务器收到的时候，其实就已经比开火时刻大概晚了单程时延了。也就是说用一条时间轴来说，大概符合下面：
+
+```
+客户端时钟 ---- 开火( tC_fire ) ----(网络传输≈OneWay)----> 服务器收到( tS_now )
+服务器时钟                ↑ 需要回溯到的目标时刻 tS_hit
+```
+
+2. **ULagCompensationComponent::ServerScoreRequest(ABlasterCharacter* HitCharacter, const FVector_NetQuantize& TraceStart, const FVector_NetQuantize& HitLocation, float HitTime, AWeapon* DamageCauser)**
+
+```c++
+void ULagCompensationComponent::ServerScoreRequest_Implementation(ABlasterCharacter* HitCharacter, const FVector_NetQuantize& TraceStart, const FVector_NetQuantize& HitLocation, float HitTime, AWeapon* DamageCauser) {
+	FServerSideRewindResult Confirm = ServerSideRewind(HitCharacter, TraceStart, HitLocation, HitTime);
+
+	if (Character && HitCharacter && DamageCauser && Confirm.bHitConfirmed) {
+		UGameplayStatics::ApplyDamage(
+			HitCharacter,
+			DamageCauser->GetDamage(),
+			Character->Controller,
+			DamageCauser,
+			UDamageType::StaticClass()
+		);
+	}
+}
+```
+
+这是一个由客户端发送给服务器的RPC，其中的内容都是服务器执行的。显然，最重要的函数是**ServerSideRewind**，经过这个函数之后，Confirm确认击中了，服务器才会根据传进来的HitCharacter、DamageCauser等给角色施加伤害。接下来就来介绍这个函数。
+
+3. **FServerSideRewindResult ServerSideRewind(class ABlasterCharacter* HitCharacter,const FVector_NetQuantize& TraceStart, const FVector_NetQuantize& HitLocation, float HitTime);**
+
+但是在介绍这个函数之前，先来看一下服务器在每个tick中做了哪些准备，要知道只有保存了角色的状态才能server-side rewind，那服务器端是如何保存这些“状态”的呢？
+
+在TickComponent函数中，每个tick，都会调用函数void ULagCompensationComponent::SaveFramePackage()，而ServerFramePackage中又会调用其重载函数SaveFramePackage(FFramePackage& Package)。总而言之，这两个函数会根据所规定的MaxRecordTime来记录位于角色身上的HitBox的各种信息，存贮的数据结构为struct FFramePackage，具体内容在上面有写，其中包含了时间戳、HitBoxInfo（另一个结构体，包括Loc、Rot、Con等数据）和一个角色指针。
+
+现在我们有了每个时刻保存的FFramePackage，所以服务器可以开始处理客户端发送来的ServerSideRewind请求了，也就是ServerSideRewind()中是如何处理的。
+
+```c++
+FServerSideRewindResult ULagCompensationComponent::ServerSideRewind(ABlasterCharacter* HitCharacter, const FVector_NetQuantize& TraceStart, const FVector_NetQuantize& HitLocation, float HitTime) {
+	FFramePackage FrameToCheck = GetFrameToCheck(HitCharacter, HitTime);
+	return ConfirmHit(FrameToCheck, HitCharacter, TraceStart, HitLocation);
+}
+```
+
+ServerSideRewind函数由两个函数构成：FrameToCheck、ConfirmHit。前者用于获取检查帧，后者用于确认是否命中。
+
+4. **ULagCompensationComponent::GetFrameToCheck(ABlasterCharacter* HitCharacter, float HitTime)**
+
+```c++
+FFramePackage ULagCompensationComponent::GetFrameToCheck(ABlasterCharacter* HitCharacter, float HitTime) {
+	bool bReturn =
+		HitCharacter == nullptr ||
+		HitCharacter->GetLagCompensation() == nullptr ||
+		HitCharacter->GetLagCompensation()->FrameHistory.GetHead() == nullptr ||
+		HitCharacter->GetLagCompensation()->FrameHistory.GetTail() == nullptr;
+	if (bReturn) return FFramePackage();
+
+	FFramePackage FrameToCheck;
+	bool bShouldInterplate = true;
+	const TDoubleLinkedList<FFramePackage>& History = HitCharacter->GetLagCompensation()->FrameHistory;
+	const float OldestHistoryTime = History.GetTail()->GetValue().Time;
+	const float NewestHistoryTime = History.GetHead()->GetValue().Time;
+	if (OldestHistoryTime > HitTime) return FFramePackage();
+	if (OldestHistoryTime == HitTime) {
+		FrameToCheck = History.GetTail()->GetValue();
+		bShouldInterplate = false;
+	}
+	if (NewestHistoryTime <= HitTime) {
+		FrameToCheck = History.GetHead()->GetValue();
+		bShouldInterplate = false;
+	}
+
+	TDoubleLinkedList<FFramePackage>::TDoubleLinkedListNode* Younger = History.GetHead();
+	TDoubleLinkedList<FFramePackage>::TDoubleLinkedListNode* Older = Younger;
+	while (Older->GetValue().Time > HitTime) {
+		if (Older->GetNextNode() == nullptr) break;
+		Older = Older->GetNextNode();
+		if (Older->GetValue().Time > HitTime) {
+			Younger = Older;
+		}
+	}
+	if (Older->GetValue().Time == HitTime) {
+		FrameToCheck = Older->GetValue();
+		bShouldInterplate = false;
+	}
+
+	if (bShouldInterplate) {
+		FrameToCheck = InterpBetweenFrame(Older->GetValue(), Younger->GetValue(), HitTime);
+	}
+
+	FrameToCheck.Character = HitCharacter;
+	return FrameToCheck;
+}
+```
+
+边界情况：1. 如果 OldestHistoryTime > HitTime：无法回溯，返回空包；2. 如果 OldestHistoryTime == HitTime：直接用 Tail 帧；3. 如果 NewestHistoryTime <= HitTime：直接用 Head 帧。值得一提的是，随着游戏的进行，时间是越来越大的。
+
+如果以上都不符合，那就寻找Older和Younger，在这两个Frame中使用插值来确定传入的HitTime的HitBox信息。具体的插值代码如下，无需赘述。
+
+```c++
+FFramePackage ULagCompensationComponent::InterpBetweenFrame(const FFramePackage& OlderFrame, const FFramePackage& YoungerFrame, float HitTime) {
+	const float Distance = YoungerFrame.Time - OlderFrame.Time;
+	const float InterpFraction = FMath::Clamp((HitTime - OlderFrame.Time) / Distance, 0.f, 1.f);
+
+	FFramePackage InterpFramePackage;
+	InterpFramePackage.Character = YoungerFrame.Character;
+	InterpFramePackage.Time = HitTime;
+
+	for (auto YoungerPair : YoungerFrame.HitBoxInfo) {
+		const FName& BoxInfoName = YoungerPair.Key;
+
+		const FBoxInformation& OlderBox = OlderFrame.HitBoxInfo[BoxInfoName];
+		const FBoxInformation& YoungerBox = YoungerFrame.HitBoxInfo[BoxInfoName];
+
+		FBoxInformation InterpBoxInfo;
+		InterpBoxInfo.Location = FMath::VInterpTo(OlderBox.Location, YoungerBox.Location, 1.f, InterpFraction);
+		InterpBoxInfo.Rotation = FMath::RInterpTo(OlderBox.Rotation, YoungerBox.Rotation, 1.f, InterpFraction);
+		InterpBoxInfo.BoxExtent = YoungerBox.BoxExtent;
+
+		InterpFramePackage.HitBoxInfo.Add(BoxInfoName, InterpBoxInfo);
+	}
+}
+```
+
+经历了以上的步骤，服务器就拿到了在HitTime的目标角色的HitBox所在的位置，接下来就是将得到的FFramePackage FrameToCheck传入ConfirmHit，判断是否真的Hit，并且返回一个结果。
+
+5. **FServerSideRewindResult ULagCompensationComponent::ConfirmHit(const FFramePackage& Package, ABlasterCharacter* HitCharacter, const FVector_NetQuantize& TraceStart, const FVector_NetQuantize& HitLocation)**
+
+```c++
+FServerSideRewindResult ULagCompensationComponent::ConfirmHit(const FFramePackage& Package, ABlasterCharacter* HitCharacter, const FVector_NetQuantize& TraceStart, const FVector_NetQuantize& HitLocation) {
+	if (HitCharacter == nullptr) return FServerSideRewindResult();
+	
+	FFramePackage CurrentFrame;
+	CacheBoxPositions(HitCharacter, CurrentFrame);
+	MoveBoxes(HitCharacter, Package);
+	EnableCharacterMeshCollision(HitCharacter, ECollisionEnabled::NoCollision);
+
+	// Enable collision for the head box
+	UBoxComponent* HeadBox = HitCharacter->HitCollisionBox[FName("head")];
+	HeadBox->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	HeadBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
+
+	FHitResult ConfirmResult;
+	const FVector TraceEnd = TraceStart + (HitLocation - TraceStart) * 1.25f;
+	UWorld* World = GetWorld();
+	if (World) {
+		World->LineTraceSingleByChannel(
+			ConfirmResult,
+			TraceStart,
+			TraceEnd,
+			ECollisionChannel::ECC_Visibility
+		);
+		if (ConfirmResult.bBlockingHit) { // head
+			ResetHitBoxes(HitCharacter, CurrentFrame);
+			EnableCharacterMeshCollision(HitCharacter, ECollisionEnabled::QueryAndPhysics);
+			return FServerSideRewindResult{ true, true };
+		}
+		else { // other
+			for (auto& HitBoxPair : HitCharacter->HitCollisionBox) {
+				if (HitBoxPair.Value != nullptr) {
+					HitBoxPair.Value->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+					HitBoxPair.Value->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
+				}
+			}
+			World->LineTraceSingleByChannel(
+				ConfirmResult,
+				TraceStart,
+				TraceEnd,
+				ECollisionChannel::ECC_Visibility
+			);
+			if (ConfirmResult.bBlockingHit) {
+				ResetHitBoxes(HitCharacter, CurrentFrame);
+				EnableCharacterMeshCollision(HitCharacter, ECollisionEnabled::QueryAndPhysics);
+				return FServerSideRewindResult{ true, false };
+			}
+		}
+	}
+
+	ResetHitBoxes(HitCharacter, CurrentFrame);
+	EnableCharacterMeshCollision(HitCharacter, ECollisionEnabled::QueryAndPhysics);
+	return FServerSideRewindResult{ false, false };
+}
+```
+
+> 1. 缓存当前命中盒状态：CacheBoxPositions(HitCharacter, CurrentFrame)
+>    - CurrentFrame.HitBoxInfo 保存每个盒子的 Location/Rotation/BoxExtent
+> 2. 将命中盒移动到历史帧位置：MoveBoxes(HitCharacter, Package)
+>    - 逐个盒子 SetWorldLocation / SetWorldRotation / SetBoxExtent
+> 3. 禁用角色网格碰撞：EnableCharacterMeshCollision(HitCharacter, NoCollision)
+>    - 避免网格与盒子的射线干扰
+> 4. 头部优先判定：
+>    - 启用头盒 head：SetCollisionEnabled(QueryAndPhysics) 并对 ECC_Visibility 设为 Block
+>    - 做一次线性射线：
+>      - TraceEnd = TraceStart + (HitLocation - TraceStart) * 1.25f
+>      - World->LineTraceSingleByChannel(..., ECC_Visibility)
+>    - 若 bBlockingHit：返回 {bHitConfirmed=true, bHeadShot=true}
+> 5. 身体判定：
+>    - 启用所有命中盒并对 ECC_Visibility 设为 Block
+>    - 再做一次同样的射线
+>    - 若 bBlockingHit：返回 {true, false}
+> 6. 还原状态：
+>    - ResetHitBoxes(HitCharacter, CurrentFrame) 恢复位置/旋转/尺寸，并将各盒子 SetCollisionEnabled(NoCollision)
+>    - EnableCharacterMeshCollision(HitCharacter, QueryAndPhysics) 恢复网格碰撞
+> 7. 未命中：返回 {false, false}
+
+- CacheBoxPositions(ABlasterCharacter* HitCharacter, FFramePackage& OutFramePackage)
+  - 将当前盒子状态写入 OutFramePackage.HitBoxInfo
+- MoveBoxes(ABlasterCharacter* HitCharacter, const FFramePackage& Package)
+  - 将盒子移动到历史帧的状态
+- ResetHitBoxes(ABlasterCharacter* HitCharacter, const FFramePackage& Package)
+  - 将盒子恢复至缓存状态并禁用碰撞
+- EnableCharacterMeshCollision(ABlasterCharacter* HitCharacter, ECollisionEnabled::Type CollisionEnable)
+  - 开关角色网格的碰撞
+- 成员变量：
+  - Character：组件所属的角色（ABlasterCharacter）
+  - Controller：控制器（未使用）
+  - FrameHistory：历史帧双向链表
+  - MaxRecordTime：最大历史时长（默认 4 秒）
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
